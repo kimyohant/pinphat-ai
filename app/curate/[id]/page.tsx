@@ -5,6 +5,8 @@ import { all, one } from "@/lib/db";
 import { CONTENT_TYPES, TK_LABELS } from "@/lib/access";
 import { parseNotation } from "@/lib/notation";
 import { json, pct } from "@/lib/format";
+import { asrState, type AsrState } from "@/lib/field";
+import { AutoRefresh } from "@/components/AutoRefresh";
 import type { Analysis } from "@/lib/audio";
 import { AccessBadge } from "@/components/AccessBadge";
 import { NotationGrid } from "@/components/NotationGrid";
@@ -49,7 +51,10 @@ export default async function ReviewPage({ params, searchParams }: { params: Pro
     Number(id),
   );
   if (!sg) notFound();
-  const ai = json<Analysis | null>(sg.ai_suggestion, null);
+  // ai_suggestion เก็บได้ทั้งผลวิเคราะห์ดนตรี (มี notes) และสถานะการถอดความบทสัมภาษณ์ (มี asr)
+  const raw = json<(Analysis & { asr?: undefined }) | { asr: AsrState; notes?: undefined } | null>(sg.ai_suggestion, null);
+  const ai = raw?.notes ? (raw as Analysis) : null;
+  const asr = asrState(sg.ai_suggestion, sg.id);
   const peaks = json<{ peaks?: number[] }>(sg.asset_analysis, {}).peaks;
   const works = all<{ id: number; title: string }>("SELECT id, title FROM works ORDER BY id");
   const variants = all<{ id: number; work_id: number; name: string }>("SELECT id, work_id, name FROM variants ORDER BY id");
@@ -85,6 +90,24 @@ export default async function ReviewPage({ params, searchParams }: { params: Pro
               <h3>เสียงต้นฉบับ</h3>
               {peaks && <Waveform peaks={peaks} />}
               <audio controls preload="metadata" src={`/api/media/${sg.asset_id}`} style={{ width: "100%" }} />
+            </section>
+          )}
+
+          {asr && (
+            <section className={`notice ${asr.status === "failed" ? "crit" : asr.status === "running" ? "" : "warn"}`}>
+              {asr.status === "running" && (
+                <>
+                  AI กำลังถอดความด้วย {asr.model} หน้านี้จะอัปเดตเองเมื่อเสร็จ
+                  <AutoRefresh seconds={5} />
+                </>
+              )}
+              {asr.status === "done" && (
+                <>
+                  คำถอดความด้านล่างเป็นร่างจาก AI ({asr.model}{asr.language ? ` · ภาษา ${asr.language}` : ""}) ฟังเสียงต้นฉบับแล้วแก้คำที่ผิด
+                  โดยเฉพาะคำภาษาถิ่น ชื่อเพลง และชื่อบุคคล ก่อนกดรับรอง
+                </>
+              )}
+              {asr.status === "failed" && <>ถอดความไม่สำเร็จ: {asr.error} พิมพ์คำถอดความเองได้ หรือกดถอดความใหม่ในหน้ารอบบันทึก</>}
             </section>
           )}
 
@@ -179,7 +202,7 @@ export default async function ReviewPage({ params, searchParams }: { params: Pro
             {(sg.kind === "interview" || isMusic) && (
               <label>
                 {sg.kind === "interview" ? "คำถอดความที่รับรอง" : "หมายเหตุประกอบ (ถ้ามี)"}
-                <textarea id="transcript" name="transcript" defaultValue={sg.transcript ?? ""} style={{ minHeight: sg.kind === "interview" ? 200 : 80 }} />
+                <textarea key={sg.transcript ? "filled" : "empty"} id="transcript" name="transcript" defaultValue={sg.transcript ?? ""} style={{ minHeight: sg.kind === "interview" ? 200 : 80 }} />
               </label>
             )}
             {isMusic && (

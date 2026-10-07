@@ -3,15 +3,16 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { all } from "@/lib/db";
 import { CHECKLIST, CONTENT_TYPES, TK_LABELS } from "@/lib/access";
-import { getSession } from "@/lib/field";
+import { asrState, getSession } from "@/lib/field";
 import { dur, json, pct, thDate } from "@/lib/format";
 import { AccessBadge } from "@/components/AccessBadge";
 import { UploadAsset } from "@/components/UploadAsset";
 import { Waveform } from "@/components/Waveform";
-import { addTranscript, runFixity, submitSession, toggleCheck } from "../actions";
+import { addTranscript, retranscribe, runFixity, submitSession, toggleCheck } from "../actions";
+import { AutoRefresh } from "@/components/AutoRefresh";
 
 type Asset = { id: number; kind: string; content_type: string; track_label: string | null; filename: string; size: number; sha256: string; duration_s: number | null; analysis: string | null; fixity_checked_at: string | null; instrument: string | null };
-type Seg = { id: number; kind: string; status: string; ai_confidence: number | null; transcript: string | null; asset_id: number | null };
+type Seg = { id: number; kind: string; status: string; ai_confidence: number | null; transcript: string | null; asset_id: number | null; ai_suggestion: string | null };
 
 const SEG_STATUS: Record<string, [string, string]> = { pending: ["รอตรวจ", "warn"], approved: ["รับรองแล้ว", "ok"], rejected: ["ไม่ผ่าน", "crit"] };
 
@@ -21,12 +22,14 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
   const s = getSession(Number(id));
   if (!s) notFound();
   const assets = all<Asset>("SELECT a.*, i.name_th AS instrument FROM assets a LEFT JOIN instruments i ON i.id = a.instrument_id WHERE session_id = ? ORDER BY a.id", s.id);
-  const segs = all<Seg>("SELECT id, kind, status, ai_confidence, transcript, asset_id FROM segments WHERE session_id = ? ORDER BY id", s.id);
+  const segs = all<Seg>("SELECT id, kind, status, ai_confidence, transcript, asset_id, ai_suggestion FROM segments WHERE session_id = ? ORDER BY id", s.id);
   const instruments = all<{ id: number; name_th: string }>("SELECT id, name_th FROM instruments ORDER BY id");
   const check = json<Record<string, boolean>>(s.checklist, {});
   const labels = json<string[]>(s.tk_labels, []);
   const missing = CHECKLIST.filter((c) => c.required && !check[c.key]);
   const canSubmit = s.status === "draft" && segs.length > 0;
+  const asr = new Map(segs.map((g) => [g.id, asrState(g.ai_suggestion, g.id)]));
+  const transcribing = [...asr.values()].some((a) => a?.status === "running");
 
   return (
     <main className="page">
@@ -48,6 +51,7 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
+      {transcribing && <AutoRefresh seconds={5} />}
       <div className="split">
         <div className="stack-lg">
           <section className="card">
@@ -123,7 +127,17 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
                       <td className="mono">{g.id}</td>
                       <td>
                         {CONTENT_TYPES[g.kind] ?? g.kind}
-                        {g.transcript && <div className="xs muted">{g.transcript.slice(0, 80)}…</div>}
+                        {asr.get(g.id)?.status === "running" && <span className="badge l2"> AI กำลังถอดความ…</span>}
+                        {asr.get(g.id)?.status === "done" && <span className="badge ok">ถอดความโดย AI ({asr.get(g.id)?.seconds} วินาที)</span>}
+                        {asr.get(g.id)?.status === "failed" && <span className="badge crit">ถอดความไม่สำเร็จ: {asr.get(g.id)?.error}</span>}
+                        {g.transcript && <div className="xs muted">{g.transcript.slice(0, 120)}…</div>}
+                        {g.kind === "interview" && g.asset_id && g.status === "pending" && asr.get(g.id)?.status !== "running" && (
+                          <form action={retranscribe.bind(null, g.id, s.id, asr.get(g.id)?.language ?? "th")}>
+                            <button className="btn ghost sm" type="submit">
+                              {g.transcript ? "ถอดความใหม่ด้วย AI" : "ถอดความด้วย AI"}
+                            </button>
+                          </form>
+                        )}
                       </td>
                       <td className="num">{pct(g.ai_confidence)}</td>
                       <td>

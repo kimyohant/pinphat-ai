@@ -20,6 +20,7 @@ export async function POST(req: Request) {
     contentType: String(form.get("contentType") || "performance"),
     trackLabel: String(form.get("trackLabel") || ""),
     instrumentId: Number(form.get("instrumentId")) || null,
+    language: String(form.get("language") || "th"),
   });
   audit(user.id, "asset.upload", `asset:${r.assetId}`, `${file.name} sha256=${r.sha256}`);
   return Response.json({

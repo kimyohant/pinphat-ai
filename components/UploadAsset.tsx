@@ -11,6 +11,7 @@ export function UploadAsset({ sessionId, instruments, disabled }: { sessionId: n
   const [busy, setBusy] = useState(false);
   const [res, setRes] = useState<Res | null>(null);
   const [err, setErr] = useState("");
+  const [ctype, setCtype] = useState("performance");
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -42,12 +43,12 @@ export function UploadAsset({ sessionId, instruments, disabled }: { sessionId: n
       <label>
         ไฟล์เสียง / วิดีโอ / ภาพ
         <input id="upload-file" name="file" type="file" required accept="audio/*,video/*,image/*" />
-        <span className="hint">วิเคราะห์อัตโนมัติได้กับไฟล์ WAV · ไฟล์ต้นฉบับถูกเก็บโดยไม่บีบอัด</span>
+        <span className="hint">ถอดโน้ตอัตโนมัติได้กับไฟล์ WAV · ถอดความสัมภาษณ์ได้ทุกไฟล์เสียงและวิดีโอ · ไฟล์ต้นฉบับถูกเก็บโดยไม่บีบอัด</span>
       </label>
       <div className="grid cols-3">
         <label>
           เนื้อหา
-          <select id="upload-type" name="contentType" defaultValue="performance">
+          <select id="upload-type" name="contentType" value={ctype} onChange={(e) => setCtype(e.target.value)}>
             {Object.entries(CONTENT_TYPES).map(([k, v]) => (
               <option key={k} value={k}>
                 {v}
@@ -55,6 +56,16 @@ export function UploadAsset({ sessionId, instruments, disabled }: { sessionId: n
             ))}
           </select>
         </label>
+        {ctype === "interview" ? (
+          <label>
+            ภาษาที่พูด
+            <select id="upload-lang" name="language" defaultValue="th">
+              <option value="th">ไทย / อีสาน</option>
+              <option value="lo">ลาว</option>
+              <option value="auto">ให้ AI ตรวจเอง</option>
+            </select>
+          </label>
+        ) : (
         <label>
           เครื่องดนตรี
           <select id="upload-inst" name="instrumentId" defaultValue="1">
@@ -66,6 +77,7 @@ export function UploadAsset({ sessionId, instruments, disabled }: { sessionId: n
             ))}
           </select>
         </label>
+        )}
         <label>
           แทร็ก / ไมค์
           <input id="upload-track" name="trackLabel" type="text" placeholder="เช่น ไมค์ 1 ระนาดเอก" />
@@ -73,7 +85,7 @@ export function UploadAsset({ sessionId, instruments, disabled }: { sessionId: n
       </div>
       <div className="row">
         <button className="btn alt" type="submit" disabled={busy}>
-          {busy ? "กำลังอัปโหลดและวิเคราะห์…" : "อัปโหลดและให้ AI วิเคราะห์"}
+          {busy ? "กำลังอัปโหลดและวิเคราะห์…" : ctype === "interview" ? "อัปโหลดและให้ AI ถอดความ" : "อัปโหลดและให้ AI วิเคราะห์"}
         </button>
         <a className="small" href="/api/sample?kind=performance">
           ไฟล์ทดสอบ: การบรรเลง

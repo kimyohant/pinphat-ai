@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { audit, now, one, run, tx } from "@/lib/db";
 import { CHECKLIST, TK_LABELS } from "@/lib/access";
-import { checkFixity, getSession, nextSessionCode, saveFile } from "@/lib/field";
+import { checkFixity, getSession, nextSessionCode, saveFile, startTranscription } from "@/lib/field";
 import { json } from "@/lib/format";
 
 export async function createSession(formData: FormData) {
@@ -107,5 +107,11 @@ export async function runFixity(sessionId: number) {
   const user = await requireRole("collector", "curator");
   const r = checkFixity(sessionId);
   audit(user.id, "fixity.check", `session:${sessionId}`, r.map((x) => `${x.filename}:${x.ok ? "ok" : "FAIL"}`).join(", "));
+  revalidatePath(`/field/${sessionId}`);
+}
+
+export async function retranscribe(segmentId: number, sessionId: number, language: string) {
+  const user = await requireRole("collector", "curator");
+  if (startTranscription(segmentId, language)) audit(user.id, "segment.asr", `segment:${segmentId}`, language);
   revalidatePath(`/field/${sessionId}`);
 }

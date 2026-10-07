@@ -97,7 +97,8 @@ export async function loadedKind(): Promise<ModelKind | null> {
     json<{ loaded: boolean; repo_id: string | null }>("/api/inference/images/status").catch(() => ({ loaded: false, repo_id: null })),
     json<{ loaded: boolean; repo_id: string | null }>("/api/inference/video/status").catch(() => ({ loaded: false, repo_id: null })),
   ]);
-  if (t.active_model === UNSLOTH.text) return "text";
+  // เซิร์ฟเวอร์อาจรายงานชื่อพร้อมรุ่น quant ต่อท้าย เช่น "unsloth/Qwen3.8-27B-GGUF:UD-Q5_K_M"
+  if (t.active_model?.split(":")[0] === UNSLOTH.text) return "text";
   if (i.loaded && i.repo_id === UNSLOTH.image) return "image";
   if (v.loaded && v.repo_id === UNSLOTH.video) return "video";
   return null;
@@ -125,6 +126,9 @@ export async function remoteGeneration(): Promise<{ kind: "image" | "video"; eta
   ]);
   if (v.active) return { kind: "video", etaSec: v.eta_seconds };
   if (i.active) return { kind: "image", etaSec: i.eta_seconds };
+  // ช่วงท้ายของวิดีโอ (ถอดรหัสภาพและรวมไฟล์) ตัวบอกความคืบหน้าไม่รายงาน active จึงตรวจคิวงานวิดีโอด้วย
+  const jobs = await json<{ data: { status: string }[] }>("/v1/videos?limit=5").catch(() => ({ data: [] }));
+  if (jobs.data.some((j) => j.status === "queued" || j.status === "in_progress")) return { kind: "video", etaSec: null };
   return null;
 }
 
@@ -259,4 +263,19 @@ export async function getVideo(id: string): Promise<VideoJob> {
 export async function videoContent(id: string): Promise<Buffer> {
   const res = await call(`/v1/videos/${encodeURIComponent(id)}/content`, { timeoutMs: 5 * 60_000 });
   return Buffer.from(await res.arrayBuffer());
+}
+
+// ---------- ถอดเสียงพูด ----------
+// ตัวถอดเสียงของ Unsloth ทำงานเป็น sidecar คู่กับโมเดลภาษา ไม่ต้องสลับโมเดลบน GPU จึงไม่ต้องเข้าคิว
+
+export const STT_MODEL = process.env.UNSLOTH_STT_MODEL || "large-v3-turbo";
+
+export async function transcribe(buf: Buffer, name: string, mime: string, language?: string): Promise<{ text: string; language: string | null; duration: number | null }> {
+  const fd = new FormData();
+  fd.set("file", new File([new Uint8Array(buf)], name, { type: mime || "application/octet-stream" }));
+  fd.set("model", STT_MODEL);
+  if (language && language !== "auto") fd.set("language", language);
+  fd.set("response_format", "verbose_json");
+  const j = await json<{ text?: string; language?: string; duration?: number }>("/v1/audio/transcriptions", { method: "POST", body: fd, timeoutMs: 45 * 60_000 });
+  return { text: (j.text ?? "").trim(), language: j.language ?? null, duration: j.duration ?? null };
 }

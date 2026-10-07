@@ -4,6 +4,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { MEDIA_DIR, all, now, one, run } from "./db";
 import { analyzeWav } from "./audio";
+import { STT_MODEL, transcribe, unslothEnabled } from "./unsloth";
 
 export type SessionRow = {
   id: number;
@@ -74,11 +75,14 @@ export function ingest(opts: {
   contentType: string;
   trackLabel: string;
   instrumentId: number | null;
+  language?: string;
 }): IngestResult {
+  const isInterview = opts.contentType === "interview";
   const kind = kindOf(opts.mime, opts.name);
   const f = saveFile(opts.sessionId, opts.name, opts.mime, opts.buf);
   const isWav = /wav/i.test(opts.mime) || /\.wav$/i.test(opts.name);
-  const analysis = kind === "audio" && isWav ? analyzeWav(opts.buf, opts.contentType) : null;
+  // บทสัมภาษณ์ใช้ผลวิเคราะห์เฉพาะความยาวและรูปคลื่น ไม่ต้องถอดโน้ต
+  const analysis = kind === "audio" && isWav ? analyzeWav(opts.buf, isInterview ? "interview" : opts.contentType) : null;
   const asset = run(
     "INSERT INTO assets (session_id, kind, content_type, track_label, instrument_id, filename, path, mime, size, sha256, duration_s, analysis, fixity_checked_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     opts.sessionId,
@@ -106,10 +110,14 @@ export function ingest(opts: {
       opts.contentType === "photo" || opts.contentType === "other" ? "performance" : opts.contentType,
       analysis ? Math.round(analysis.durationSec * 1000) : null,
       opts.instrumentId,
-      analysis ? JSON.stringify(analysis) : null,
-      analysis?.confidence ?? null,
+      isInterview ? null : analysis ? JSON.stringify(analysis) : null,
+      isInterview ? null : (analysis?.confidence ?? null),
       now(),
     ).id;
+    if (isInterview) {
+      const started = startTranscription(segmentId, opts.language);
+      return { assetId: asset.id, segmentId, sha256: f.sha, analysis: null, note: started ? "AI กำลังถอดความบทสัมภาษณ์ ร่างจะเข้าคิวให้ผู้เชี่ยวชาญตรวจแก้" : "ยังไม่ได้ตั้งค่าเซิร์ฟเวอร์ถอดเสียง ส่งเข้าคิวให้ถอดความเองแล้ว" };
+    }
     note = analysis
       ? opts.contentType === "tuning"
         ? `วัดระบบเสียงได้ ${analysis.tuning?.steps.length ?? 0} ลูก ส่งเข้าคิวตรวจรับรองแล้ว`
@@ -117,6 +125,53 @@ export function ingest(opts: {
       : "ต้นแบบนี้วิเคราะห์อัตโนมัติได้เฉพาะไฟล์ WAV ไฟล์นี้ส่งเข้าคิวให้ผู้เชี่ยวชาญถอดโน้ตเอง";
   }
   return { assetId: asset.id, segmentId, sha256: f.sha, analysis, note };
+}
+
+// ---------- ถอดความบทสัมภาษณ์ ----------
+
+export type AsrState = { status: "running" | "done" | "failed"; model: string; language: string | null; error?: string; seconds?: number; at: string };
+
+const g = globalThis as unknown as { __pinphatAsr?: Set<number> };
+const asrActive = (g.__pinphatAsr ??= new Set<number>());
+
+export function asrState(aiSuggestion: string | null, segmentId: number): AsrState | null {
+  if (!aiSuggestion) return null;
+  try {
+    const s = (JSON.parse(aiSuggestion) as { asr?: AsrState }).asr ?? null;
+    // งานที่ค้างจากการรีสตาร์ตเซิร์ฟเวอร์แอป
+    if (s?.status === "running" && !asrActive.has(segmentId)) return { ...s, status: "failed", error: "ถูกขัดจังหวะ กดถอดความใหม่ได้" };
+    return s;
+  } catch {
+    return null;
+  }
+}
+
+/** ถอดความไฟล์เสียงของส่วนย่อยแบบเบื้องหลัง ผลเป็นร่างที่ต้องผ่านผู้เชี่ยวชาญก่อนเข้าคลังความรู้ */
+export function startTranscription(segmentId: number, language = "th"): boolean {
+  if (!unslothEnabled() || asrActive.has(segmentId)) return false;
+  const a = one<{ path: string; filename: string; mime: string }>(
+    "SELECT a.path, a.filename, a.mime FROM segments sg JOIN assets a ON a.id = sg.asset_id WHERE sg.id = ?",
+    segmentId,
+  );
+  if (!a) return false;
+  const lang = language === "auto" ? null : language;
+  const set = (s: AsrState) => run("UPDATE segments SET ai_suggestion = ? WHERE id = ?", JSON.stringify({ asr: s }), segmentId);
+  set({ status: "running", model: STT_MODEL, language: lang, at: now() });
+  asrActive.add(segmentId);
+  const t0 = Date.now();
+  void (async () => {
+    try {
+      const buf = fs.readFileSync(path.join(/*turbopackIgnore: true*/ MEDIA_DIR, a.path));
+      const r = await transcribe(buf, a.filename, a.mime, language);
+      run("UPDATE segments SET transcript = ? WHERE id = ? AND status = 'pending'", r.text, segmentId);
+      set({ status: "done", model: STT_MODEL, language: r.language ?? lang, seconds: Math.round((Date.now() - t0) / 1000), at: now() });
+    } catch (e) {
+      set({ status: "failed", model: STT_MODEL, language: lang, error: e instanceof Error ? e.message : String(e), at: now() });
+    } finally {
+      asrActive.delete(segmentId);
+    }
+  })();
+  return true;
 }
 
 /** ตรวจความสมบูรณ์ของไฟล์ (fixity) โดยคำนวณ SHA-256 ใหม่เทียบกับค่าที่บันทึกไว้ */
