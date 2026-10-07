@@ -2,9 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { all } from "@/lib/db";
-import { CHECKLIST, CONTENT_TYPES, TK_LABELS } from "@/lib/access";
+import { CHECKLIST } from "@/lib/access";
+import { getT } from "@/lib/i18n/server";
+import { fmt, fmtDate } from "@/lib/i18n/config";
+import { Icon } from "@/components/ui/Icon";
 import { asrState, getSession } from "@/lib/field";
-import { dur, json, pct, thDate } from "@/lib/format";
+import { dur, json, pct } from "@/lib/format";
 import { AccessBadge } from "@/components/AccessBadge";
 import { UploadAsset } from "@/components/UploadAsset";
 import { Waveform } from "@/components/Waveform";
@@ -14,11 +17,16 @@ import { AutoRefresh } from "@/components/AutoRefresh";
 type Asset = { id: number; kind: string; content_type: string; track_label: string | null; filename: string; size: number; sha256: string; duration_s: number | null; analysis: string | null; fixity_checked_at: string | null; instrument: string | null };
 type Seg = { id: number; kind: string; status: string; ai_confidence: number | null; transcript: string | null; asset_id: number | null; ai_suggestion: string | null };
 
-const SEG_STATUS: Record<string, [string, string]> = { pending: ["รอตรวจ", "warn"], approved: ["รับรองแล้ว", "ok"], rejected: ["ไม่ผ่าน", "crit"] };
 
 export default async function SessionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   await requireRole("collector", "curator");
+  const { t, locale } = await getT();
+  const thDate = (d: string | null | undefined) => fmtDate(d, locale);
+  const CONTENT_TYPES = t.contentTypes as Record<string, string>;
+  const TK = t.tk as Record<string, string>;
+  const CHECK = t.checklist as Record<string, string>;
+  const SEG_STATUS: Record<string, [string, string]> = { pending: [t.fieldDetail.pending, "warn"], approved: [t.fieldDetail.approved, "ok"], rejected: [t.fieldDetail.rejected, "crit"] };
   const s = getSession(Number(id));
   if (!s) notFound();
   const assets = all<Asset>("SELECT a.*, i.name_th AS instrument FROM assets a LEFT JOIN instruments i ON i.id = a.instrument_id WHERE session_id = ? ORDER BY a.id", s.id);
@@ -32,10 +40,11 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
   const transcribing = [...asr.values()].some((a) => a?.status === "running");
 
   return (
-    <main className="page">
+    <main id="main" className="page">
       <div className="page-head">
         <Link href="/field" className="small">
-          ← รอบบันทึกทั้งหมด
+          <Icon name="back" size={16} />
+          {t.fieldNew.back}
         </Link>
         <div className="row">
           <span className="mono muted">{s.code}</span>
@@ -47,7 +56,7 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
             {s.place} · {s.district} · {s.province}
           </span>
           <span>{thDate(s.recorded_on)}</span>
-          <span>บันทึกโดย {s.collector}</span>
+          <span>{fmt(t.fieldDetail.recordedBy, { name: s.collector ?? "-" })}</span>
         </div>
       </div>
 
@@ -56,18 +65,18 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
         <div className="stack-lg">
           <section className="card">
             <div className="row between">
-              <h2>ไฟล์ในรอบนี้</h2>
+              <h2>{t.fieldDetail.files}</h2>
               <form action={runFixity.bind(null, s.id)}>
                 <button className="btn ghost sm" type="submit">
-                  ตรวจความสมบูรณ์ไฟล์ (SHA-256)
+                  {t.fieldDetail.fixity}
                 </button>
               </form>
             </div>
-            {assets.length === 0 && <div className="empty">ยังไม่มีไฟล์ อัปโหลดไฟล์แรกด้านล่าง</div>}
+            {assets.length === 0 && <div className="empty">{t.fieldDetail.noFiles}</div>}
             {assets.map((a) => {
               const an = json<{ peaks?: number[] }>(a.analysis, {});
               return (
-                <div key={a.id} className="stack" style={{ borderTop: "1px solid var(--line)", paddingTop: 12 }}>
+                <div key={a.id} className="stack" style={{ borderTop: "1px solid var(--line)", paddingTop: "var(--s3)" }}>
                   <div className="row between">
                     <div>
                       <b>{a.track_label || a.filename}</b>{" "}
@@ -78,10 +87,10 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
                     </span>
                   </div>
                   {an.peaks && <Waveform peaks={an.peaks} />}
-                  {a.kind === "audio" && <audio controls preload="none" src={`/api/media/${a.id}`} style={{ width: "100%" }} />}
+                  {a.kind === "audio" && <audio controls preload="none" src={`/api/media/${a.id}`} />}
                   <div className="row xs muted">
                     <span className="mono">SHA-256 {a.sha256.slice(0, 20)}…</span>
-                    <span>ตรวจล่าสุด {thDate(a.fixity_checked_at)}</span>
+                    <span>{fmt(t.fieldDetail.lastCheck, { date: thDate(a.fixity_checked_at) })}</span>
                   </div>
                 </div>
               );
@@ -89,36 +98,36 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
           </section>
 
           <section className="card">
-            <h2>อัปโหลดไฟล์</h2>
+            <h2>{t.fieldDetail.upload}</h2>
             <UploadAsset
               sessionId={s.id}
               instruments={instruments}
-              disabled={s.revoked_at ? "ความยินยอมของรอบนี้ถูกถอนแล้ว อัปโหลดเพิ่มไม่ได้" : !s.consent_id ? "ต้องบันทึกความยินยอมก่อน" : undefined}
+              disabled={s.revoked_at ? t.fieldDetail.revokedNoUpload : !s.consent_id ? t.fieldDetail.needConsent : undefined}
             />
           </section>
 
           <section className="card">
-            <h2>ถอดความบทสัมภาษณ์</h2>
-            <p className="small muted">พิมพ์หรือวางคำถอดความ ระบบจะส่งให้ผู้เชี่ยวชาญตรวจก่อนนำเข้าคลังความรู้ของครูผู้ช่วย AI</p>
+            <h2>{t.fieldDetail.transcribe}</h2>
+            <p className="small muted">{t.fieldDetail.transcribeLede}</p>
             <form action={addTranscript} className="stack">
               <input type="hidden" name="sessionId" value={s.id} />
-              <textarea id="transcript" name="transcript" placeholder="คำถอดความ…" />
+              <textarea id="transcript" name="transcript" placeholder={t.fieldDetail.transcriptPh} />
               <button className="btn ghost" type="submit">
-                ส่งคำถอดความเข้าคิวตรวจ
+                {t.fieldDetail.sendTranscript}
               </button>
             </form>
           </section>
 
           <section className="card">
-            <h2>ส่วนย่อยในรอบนี้</h2>
+            <h2>{t.fieldDetail.segments}</h2>
             <div className="tbl">
               <table>
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>ประเภท</th>
-                    <th className="num">AI มั่นใจ</th>
-                    <th>สถานะ</th>
+                    <th>{t.curate.colType}</th>
+                    <th className="num">{t.curate.colConf}</th>
+                    <th>{t.field.colStatus}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -127,14 +136,14 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
                       <td className="mono">{g.id}</td>
                       <td>
                         {CONTENT_TYPES[g.kind] ?? g.kind}
-                        {asr.get(g.id)?.status === "running" && <span className="badge l2"> AI กำลังถอดความ…</span>}
-                        {asr.get(g.id)?.status === "done" && <span className="badge ok">ถอดความโดย AI ({asr.get(g.id)?.seconds} วินาที)</span>}
-                        {asr.get(g.id)?.status === "failed" && <span className="badge crit">ถอดความไม่สำเร็จ: {asr.get(g.id)?.error}</span>}
+                        {asr.get(g.id)?.status === "running" && <span className="badge l2">{t.fieldDetail.asrRunning}</span>}
+                        {asr.get(g.id)?.status === "done" && <span className="badge ok">{fmt(t.fieldDetail.asrDone, { n: asr.get(g.id)?.seconds ?? 0 })}</span>}
+                        {asr.get(g.id)?.status === "failed" && <span className="badge crit">{fmt(t.fieldDetail.asrFailed, { error: asr.get(g.id)?.error ?? "" })}</span>}
                         {g.transcript && <div className="xs muted">{g.transcript.slice(0, 120)}…</div>}
                         {g.kind === "interview" && g.asset_id && g.status === "pending" && asr.get(g.id)?.status !== "running" && (
                           <form action={retranscribe.bind(null, g.id, s.id, asr.get(g.id)?.language ?? "th")}>
                             <button className="btn ghost sm" type="submit">
-                              {g.transcript ? "ถอดความใหม่ด้วย AI" : "ถอดความด้วย AI"}
+                              {g.transcript ? t.fieldDetail.retranscribe : t.fieldDetail.transcribeAi}
                             </button>
                           </form>
                         )}
@@ -153,43 +162,43 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
 
         <aside className="stack-lg">
           <section className="card">
-            <h3>ความยินยอม</h3>
+            <h3>{t.field.colConsent}</h3>
             <AccessBadge level={s.access_level} revoked={!!s.revoked_at} />
             <div className="row">
               {labels.map((l) => (
-                <span key={l} className="badge" title={TK_LABELS.find((t) => t.code === l)?.th}>
+                <span key={l} className="badge" title={TK[l]}>
                   {l}
                 </span>
               ))}
             </div>
             <Link className="small" href="/consent">
-              จัดการความยินยอม
+              {t.fieldDetail.manageConsent}
             </Link>
           </section>
           <section className="card">
-            <h3>รายการตรวจก่อนปิดรอบ</h3>
+            <h3>{t.fieldDetail.checklist}</h3>
             {CHECKLIST.map((c) => (
               <form key={c.key} action={toggleCheck.bind(null, s.id, c.key)}>
                 <button type="submit" className="btn ghost sm" style={{ width: "100%", justifyContent: "flex-start", whiteSpace: "normal", textAlign: "left" }}>
-                  <span style={{ color: check[c.key] ? "var(--ok)" : "var(--muted)" }}>{check[c.key] ? "✓" : "○"}</span> {c.label}
-                  {c.required && !check[c.key] && <span className="badge warn">บังคับ</span>}
+                  <span style={{ color: check[c.key] ? "var(--ok)" : "var(--ink-3)", display: "inline-flex" }}>{check[c.key] ? <Icon name="check" size={16} /> : "○"}</span> {CHECK[c.key] ?? c.label}
+                  {c.required && !check[c.key] && <span className="badge warn">{t.fieldDetail.required}</span>}
                 </button>
               </form>
             ))}
           </section>
           <section className="card">
-            <h3>ส่งรอบบันทึก</h3>
+            <h3>{t.fieldDetail.submitTitle}</h3>
             {s.status === "submitted" ? (
-              <span className="badge ok">ส่งให้ผู้เชี่ยวชาญตรวจแล้ว</span>
+              <span className="badge ok">{t.fieldDetail.submitted}</span>
             ) : (
               <>
-                {missing.length > 0 && <p className="small" style={{ color: "var(--warn)" }}>ยังขาด: {missing.map((m) => m.label).join(", ")}</p>}
+                {missing.length > 0 && <p className="small" style={{ color: "var(--warn)" }}>{fmt(t.fieldDetail.missing, { items: missing.map((m) => CHECK[m.key] ?? m.label).join(", ") })}</p>}
                 <form action={submitSession.bind(null, s.id)}>
                   <button className="btn" type="submit" disabled={!canSubmit}>
-                    ส่งตรวจรับรอง
+                    {t.fieldDetail.submit}
                   </button>
                 </form>
-                {segs.length === 0 && <p className="xs muted">ต้องมีไฟล์หรือคำถอดความอย่างน้อยหนึ่งชิ้น</p>}
+                {segs.length === 0 && <p className="xs muted">{t.fieldDetail.needOne}</p>}
               </>
             )}
           </section>

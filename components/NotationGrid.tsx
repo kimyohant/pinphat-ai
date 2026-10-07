@@ -6,15 +6,17 @@ export function NotationGrid({
   current = -1,
   errorBars = [],
   slotState,
+  label = "โน้ตตัวเลขไทย",
 }: {
   slots: Slot[];
   current?: number;
   errorBars?: number[];
   slotState?: Record<number, "hit" | "miss">;
+  label?: string;
 }) {
   const bars = barCount(slots);
   return (
-    <div className="notation-grid" aria-label="โน้ตตัวเลขไทย">
+    <div className="notation-grid" aria-label={label}>
       {Array.from({ length: bars }, (_, b) => (
         <div key={b} className={`bar${errorBars.includes(b) ? " err" : ""}`}>
           <span className="bn">{b + 1}</span>

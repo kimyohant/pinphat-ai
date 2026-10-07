@@ -1,26 +1,30 @@
 import { getUser } from "@/lib/auth";
-import { ROLE_LABEL, ROLE_LEVELS, levelName } from "@/lib/access";
+import { ROLE_LEVELS } from "@/lib/access";
+import { getT } from "@/lib/i18n/server";
+import { fmt } from "@/lib/i18n/config";
 import { llmEnabled, modelLabel, provider } from "@/lib/llm";
 import { TutorChat } from "@/components/TutorChat";
 
 export default async function TutorPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { q } = await searchParams;
   const user = await getUser();
+  const { t, locale } = await getT();
   return (
-    <main className="page">
+    <main id="main" className="page">
       <div className="page-head">
-        <div className="eyebrow">ครูผู้ช่วย AI</div>
-        <h1>ถามเรื่องดนตรีพิณพาทย์ล้านช้าง</h1>
-        <p>คำตอบมาจากคลังความรู้ของครูภูมิปัญญาที่ผ่านการรับรองแล้วเท่านั้น และอ้างอิงแหล่งที่มาทุกครั้ง</p>
+        <span className="eyebrow">{t.tutor.eyebrow}</span>
+        <h1>{t.tutor.title}</h1>
+        <p>{t.tutor.lede}</p>
         <div className="row xs">
           <span className="badge l2">
-            คุณเห็นข้อมูลระดับ: {ROLE_LEVELS[user.role].map(levelName).join(", ")} ({ROLE_LABEL[user.role]})
+            {fmt(t.tutor.youSee, { levels: ROLE_LEVELS[user.role].map((l) => t.levels[l as 1 | 2 | 3 | 4 | 5]).join(", "), role: t.roles[user.role] })}
           </span>
           <span className={`badge ${llmEnabled() ? "ok" : "warn"}`}>
-            {llmEnabled() ? `โมเดล ${modelLabel()} · ${provider() === "unsloth" ? "เซิร์ฟเวอร์ Unsloth ของโครงการ" : "Claude"}` : "โหมดค้นคืนจากคลัง · ตั้งค่า UNSLOTH_API_KEY เพื่อเปิดใช้ LLM"}
+            {llmEnabled() ? fmt(t.tutor.model, { model: modelLabel(), host: provider() === "unsloth" ? t.tutor.hostUnsloth : "Claude" }) : t.tutor.retrievalOnly}
           </span>
         </div>
       </div>
+      {locale !== "th" && <div className="notice small">{t.tutor.answerLang}</div>}
       <TutorChat initial={q} />
     </main>
   );

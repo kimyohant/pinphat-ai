@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { all, one } from "@/lib/db";
-import { CONTENT_TYPES } from "@/lib/access";
-import { pct, thDate } from "@/lib/format";
+import { pct } from "@/lib/format";
+import { getT } from "@/lib/i18n/server";
+import { fmt, fmtDate } from "@/lib/i18n/config";
 import { AccessBadge } from "@/components/AccessBadge";
 import { resolveFlag } from "./actions";
 
@@ -11,6 +12,9 @@ type Q = { id: number; kind: string; ai_confidence: number | null; created_at: s
 export default async function CuratePage({ searchParams }: { searchParams: Promise<{ done?: string; chunks?: string }> }) {
   await requireRole("curator");
   const { done, chunks } = await searchParams;
+  const { t, locale } = await getT();
+  const thDate = (d: string | null | undefined) => fmtDate(d, locale);
+  const CONTENT_TYPES = t.contentTypes as Record<string, string>;
   const queue = all<Q>(`
     SELECT sg.id, sg.kind, sg.ai_confidence, sg.created_at, sg.transcript, s.code, s.id AS session_id, p.display_name AS person,
            c.access_level, c.revoked_at, i.name_th AS instrument, sg.ai_suggestion IS NOT NULL AS has_ai
@@ -23,21 +27,21 @@ export default async function CuratePage({ searchParams }: { searchParams: Promi
   );
   const n = (sql: string) => one<{ n: number }>(sql)?.n ?? 0;
   const stats = [
-    { v: queue.length, l: "รอตรวจ" },
-    { v: queue.filter((q) => q.ai_confidence != null && q.ai_confidence < 0.7).length, l: "AI ไม่มั่นใจ (<70%)" },
-    { v: n("SELECT COUNT(*) AS n FROM segments WHERE status = 'approved'"), l: "รับรองแล้ว" },
-    { v: flags.length, l: "คำตอบ AI ที่ถูกแจ้ง" },
+    { v: queue.length, l: t.curate.stPending },
+    { v: queue.filter((q) => q.ai_confidence != null && q.ai_confidence < 0.7).length, l: t.curate.stUnsure },
+    { v: n("SELECT COUNT(*) AS n FROM segments WHERE status = 'approved'"), l: t.curate.stApproved },
+    { v: flags.length, l: t.curate.stFlags },
   ];
 
   return (
-    <main className="page">
+    <main id="main" className="page">
       <div className="page-head">
-        <div className="eyebrow">ตรวจรับรอง</div>
-        <h1>AI เสนอ ผู้เชี่ยวชาญตัดสิน</h1>
-        <p>รายการที่ AI ไม่มั่นใจหรือไม่มีผลวิเคราะห์ขึ้นก่อน ข้อมูลจะเข้าคลังความรู้ของครูผู้ช่วย AI หลังจากรับรองแล้วเท่านั้น</p>
+        <span className="eyebrow">{t.curate.eyebrow}</span>
+        <h1>{t.curate.title}</h1>
+        <p>{t.curate.lede}</p>
       </div>
-      {done === "approved" && <div className="notice ok">รับรองแล้ว และนำเข้าดัชนีความรู้ {chunks} ชิ้น</div>}
-      {done === "rejected" && <div className="notice">บันทึกผลไม่ผ่านแล้ว</div>}
+      {done === "approved" && <div className="notice ok">{fmt(t.curate.approved, { n: chunks ?? 0 })}</div>}
+      {done === "rejected" && <div className="notice">{t.curate.rejected}</div>}
       <div className="grid cols-4">
         {stats.map((s) => (
           <div key={s.l} className="card stat">
@@ -48,17 +52,17 @@ export default async function CuratePage({ searchParams }: { searchParams: Promi
       </div>
 
       <section className="stack">
-        <h2>คิวตรวจ</h2>
+        <h2>{t.curate.queue}</h2>
         <div className="tbl">
           <table>
             <thead>
               <tr>
-                <th>ส่วนย่อย</th>
-                <th>ประเภท</th>
-                <th>ผู้ให้ข้อมูล</th>
-                <th>สิทธิ์</th>
-                <th className="num">AI มั่นใจ</th>
-                <th>ส่งเมื่อ</th>
+                <th>{t.curate.colSegment}</th>
+                <th>{t.curate.colType}</th>
+                <th>{t.curate.colPerson}</th>
+                <th>{t.curate.colAccess}</th>
+                <th className="num">{t.curate.colConf}</th>
+                <th>{t.curate.colSent}</th>
                 <th></th>
               </tr>
             </thead>
@@ -79,7 +83,7 @@ export default async function CuratePage({ searchParams }: { searchParams: Promi
                   </td>
                   <td className="num">
                     {q.ai_confidence == null ? (
-                      <span className="badge">{q.has_ai ? "-" : "ไม่มีผล AI"}</span>
+                      <span className="badge">{q.has_ai ? "-" : t.curate.noAi}</span>
                     ) : (
                       <span className={`badge ${q.ai_confidence < 0.7 ? "warn" : "ok"}`}>{pct(q.ai_confidence)}</span>
                     )}
@@ -87,7 +91,7 @@ export default async function CuratePage({ searchParams }: { searchParams: Promi
                   <td className="xs">{thDate(q.created_at)}</td>
                   <td>
                     <Link className="btn sm" href={`/curate/${q.id}`}>
-                      ตรวจ
+                      {t.curate.review}
                     </Link>
                   </td>
                 </tr>
@@ -95,18 +99,18 @@ export default async function CuratePage({ searchParams }: { searchParams: Promi
             </tbody>
           </table>
         </div>
-        {queue.length === 0 && <div className="empty">ไม่มีรายการรอตรวจ</div>}
+        {queue.length === 0 && <div className="empty">{t.curate.emptyQueue}</div>}
       </section>
 
       <section className="stack">
-        <h2>คำตอบของครูผู้ช่วย AI ที่ผู้ใช้แจ้งว่าผิด</h2>
-        {flags.length === 0 && <div className="empty">ยังไม่มีการแจ้ง</div>}
+        <h2>{t.curate.flags}</h2>
+        {flags.length === 0 && <div className="empty">{t.curate.noFlags}</div>}
         {flags.map((f) => (
           <div key={f.id} className="card">
             <div className="row between">
               <b>{f.question}</b>
               <span className="xs muted">
-                {f.name ?? "ผู้เยี่ยมชม"} · {thDate(f.created_at)}
+                {f.name ?? t.roles.public} · {thDate(f.created_at)}
               </span>
             </div>
             <p className="small muted" style={{ whiteSpace: "pre-wrap" }}>
@@ -114,7 +118,7 @@ export default async function CuratePage({ searchParams }: { searchParams: Promi
             </p>
             <form action={resolveFlag.bind(null, f.id)}>
               <button className="btn ghost sm" type="submit">
-                ตรวจแล้ว ปิดรายการ
+                {t.curate.resolve}
               </button>
             </form>
           </div>

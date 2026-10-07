@@ -1,13 +1,15 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { CONTENT_TYPES } from "@/lib/access";
+import { useT } from "@/lib/i18n/client";
+import { fmt } from "@/lib/i18n/config";
 
 type Instrument = { id: number; name_th: string };
 type Res = { note: string; sha256: string; notation: string | null; confidence: number | null; tuning: { steps: { note: string; dev: number }[] } | null };
 
 export function UploadAsset({ sessionId, instruments, disabled }: { sessionId: number; instruments: Instrument[]; disabled?: string }) {
   const router = useRouter();
+  const { t: T } = useT();
   const [busy, setBusy] = useState(false);
   const [res, setRes] = useState<Res | null>(null);
   const [err, setErr] = useState("");
@@ -23,14 +25,14 @@ export function UploadAsset({ sessionId, instruments, disabled }: { sessionId: n
     try {
       const r = await fetch("/api/assets", { method: "POST", body: fd });
       const j = await r.json();
-      if (!r.ok) setErr(j.error ?? "อัปโหลดไม่สำเร็จ");
+      if (!r.ok) setErr(j.error ?? T.upload.failed);
       else {
         setRes(j);
         (e.target as HTMLFormElement).reset();
         router.refresh();
       }
     } catch {
-      setErr("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ไฟล์ยังอยู่ในเครื่องของคุณ ลองอัปโหลดใหม่เมื่อมีสัญญาณ");
+      setErr(T.upload.offline);
     } finally {
       setBusy(false);
     }
@@ -41,15 +43,15 @@ export function UploadAsset({ sessionId, instruments, disabled }: { sessionId: n
   return (
     <form onSubmit={onSubmit} className="stack">
       <label>
-        ไฟล์เสียง / วิดีโอ / ภาพ
+        {T.upload.file}
         <input id="upload-file" name="file" type="file" required accept="audio/*,video/*,image/*" />
-        <span className="hint">ถอดโน้ตอัตโนมัติได้กับไฟล์ WAV · ถอดความสัมภาษณ์ได้ทุกไฟล์เสียงและวิดีโอ · ไฟล์ต้นฉบับถูกเก็บโดยไม่บีบอัด</span>
+        <span className="hint">{T.upload.fileHint}</span>
       </label>
       <div className="grid cols-3">
         <label>
-          เนื้อหา
+          {T.upload.content}
           <select id="upload-type" name="contentType" value={ctype} onChange={(e) => setCtype(e.target.value)}>
-            {Object.entries(CONTENT_TYPES).map(([k, v]) => (
+            {Object.entries(T.contentTypes).map(([k, v]) => (
               <option key={k} value={k}>
                 {v}
               </option>
@@ -58,18 +60,18 @@ export function UploadAsset({ sessionId, instruments, disabled }: { sessionId: n
         </label>
         {ctype === "interview" ? (
           <label>
-            ภาษาที่พูด
+            {T.upload.spoken}
             <select id="upload-lang" name="language" defaultValue="th">
-              <option value="th">ไทย / อีสาน</option>
-              <option value="lo">ลาว</option>
-              <option value="auto">ให้ AI ตรวจเอง</option>
+              <option value="th">{T.upload.langTh}</option>
+              <option value="lo">{T.upload.langLo}</option>
+              <option value="auto">{T.upload.langAuto}</option>
             </select>
           </label>
         ) : (
         <label>
-          เครื่องดนตรี
+          {T.upload.instrument}
           <select id="upload-inst" name="instrumentId" defaultValue="1">
-            <option value="">— ไม่ระบุ —</option>
+            <option value="">{T.review.unspecified}</option>
             {instruments.map((i) => (
               <option key={i.id} value={i.id}>
                 {i.name_th}
@@ -79,19 +81,19 @@ export function UploadAsset({ sessionId, instruments, disabled }: { sessionId: n
         </label>
         )}
         <label>
-          แทร็ก / ไมค์
-          <input id="upload-track" name="trackLabel" type="text" placeholder="เช่น ไมค์ 1 ระนาดเอก" />
+          {T.upload.track}
+          <input id="upload-track" name="trackLabel" type="text" placeholder={T.upload.trackPh} />
         </label>
       </div>
       <div className="row">
         <button className="btn alt" type="submit" disabled={busy}>
-          {busy ? "กำลังอัปโหลดและวิเคราะห์…" : ctype === "interview" ? "อัปโหลดและให้ AI ถอดความ" : "อัปโหลดและให้ AI วิเคราะห์"}
+          {busy ? T.upload.busy : ctype === "interview" ? T.upload.goAsr : T.upload.goAnalyse}
         </button>
         <a className="small" href="/api/sample?kind=performance">
-          ไฟล์ทดสอบ: การบรรเลง
+          {T.upload.samplePerf}
         </a>
         <a className="small" href="/api/sample?kind=tuning">
-          ไฟล์ทดสอบ: ตีไล่เสียง
+          {T.upload.sampleTuning}
         </a>
       </div>
       {err && <div className="notice crit small">{err}</div>}
@@ -99,8 +101,8 @@ export function UploadAsset({ sessionId, instruments, disabled }: { sessionId: n
         <div className="notice ok small stack">
           <span>{res.note}</span>
           <span className="mono xs">SHA-256 {res.sha256.slice(0, 16)}…</span>
-          {res.notation && <span>โน้ตที่ AI เสนอ: {res.notation}</span>}
-          {res.tuning && <span>ค่าเพี้ยน (cents): {res.tuning.steps.map((s) => `${s.note} ${s.dev > 0 ? "+" : ""}${s.dev}`).join(" · ")}</span>}
+          {res.notation && <span>{fmt(T.upload.proposed, { n: res.notation })}</span>}
+          {res.tuning && <span>{fmt(T.upload.deviation, { v: res.tuning.steps.map((s) => `${s.note} ${s.dev > 0 ? "+" : ""}${s.dev}`).join(" · ") })}</span>}
         </div>
       )}
     </form>

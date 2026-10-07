@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { all, one } from "@/lib/db";
-import { CONTENT_TYPES, TK_LABELS } from "@/lib/access";
+import { getT } from "@/lib/i18n/server";
+import { fmt } from "@/lib/i18n/config";
+import { Icon } from "@/components/ui/Icon";
 import { parseNotation } from "@/lib/notation";
 import { json, pct } from "@/lib/format";
 import { asrState, type AsrState } from "@/lib/field";
@@ -41,6 +43,8 @@ type Seg = {
 
 export default async function ReviewPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string }> }) {
   await requireRole("curator");
+  const { t } = await getT();
+  const CONTENT_TYPES = t.contentTypes as Record<string, string>;
   const { id } = await params;
   const { error } = await searchParams;
   const sg = one<Seg>(
@@ -64,10 +68,11 @@ export default async function ReviewPage({ params, searchParams }: { params: Pro
   const isMusic = sg.kind === "performance" || sg.kind === "teaching";
 
   return (
-    <main className="page">
+    <main id="main" className="page">
       <div className="page-head">
         <Link href="/curate" className="small">
-          ← คิวตรวจ
+          <Icon name="back" size={16} />
+          {t.review.back}
         </Link>
         <div className="row">
           <span className="mono muted">
@@ -80,14 +85,14 @@ export default async function ReviewPage({ params, searchParams }: { params: Pro
           {sg.title} · {sg.person} {sg.track_label && `· ${sg.track_label}`}
         </p>
       </div>
-      {error === "notation" && <div className="notice crit">อ่านโน้ตไม่ได้ ใช้รูปแบบ "- ด - ร | - ม - ซ" (ห้องละ 4 ช่อง คั่นด้วย |)</div>}
-      {sg.revoked_at && <div className="notice crit">ความยินยอมของรอบนี้ถูกถอนแล้ว รับรองได้แต่จะไม่ถูกนำเข้าดัชนี AI</div>}
+      {error === "notation" && <div className="notice crit">{t.review.badNotation}</div>}
+      {sg.revoked_at && <div className="notice crit">{t.review.revoked}</div>}
 
       <div className="split">
         <div className="stack-lg">
           {sg.asset_id && (
             <section className="card">
-              <h3>เสียงต้นฉบับ</h3>
+              <h3>{t.review.source}</h3>
               {peaks && <Waveform peaks={peaks} />}
               <audio controls preload="metadata" src={`/api/media/${sg.asset_id}`} style={{ width: "100%" }} />
             </section>
@@ -97,64 +102,63 @@ export default async function ReviewPage({ params, searchParams }: { params: Pro
             <section className={`notice ${asr.status === "failed" ? "crit" : asr.status === "running" ? "" : "warn"}`}>
               {asr.status === "running" && (
                 <>
-                  AI กำลังถอดความด้วย {asr.model} หน้านี้จะอัปเดตเองเมื่อเสร็จ
+                  {fmt(t.asr.running, { model: asr.model })}
                   <AutoRefresh seconds={5} />
                 </>
               )}
               {asr.status === "done" && (
                 <>
-                  คำถอดความด้านล่างเป็นร่างจาก AI ({asr.model}{asr.language ? ` · ภาษา ${asr.language}` : ""}) ฟังเสียงต้นฉบับแล้วแก้คำที่ผิด
-                  โดยเฉพาะคำภาษาถิ่น ชื่อเพลง และชื่อบุคคล ก่อนกดรับรอง
+                  {fmt(t.asr.done, { model: asr.model, lang: asr.language ? fmt(t.asr.lang, { l: asr.language }) : "" })}
                 </>
               )}
-              {asr.status === "failed" && <>ถอดความไม่สำเร็จ: {asr.error} พิมพ์คำถอดความเองได้ หรือกดถอดความใหม่ในหน้ารอบบันทึก</>}
+              {asr.status === "failed" && <>{fmt(t.asr.failed, { error: asr.error ?? "" })}</>}
             </section>
           )}
 
           {ai && (
             <section className="card">
               <div className="row between">
-                <h3>ผลวิเคราะห์ของ AI</h3>
-                <span className={`badge ${ai.confidence < 0.7 ? "warn" : "ok"}`}>มั่นใจ {pct(ai.confidence)}</span>
+                <h3>{t.review.ai}</h3>
+                <span className={`badge ${ai.confidence < 0.7 ? "warn" : "ok"}`}>{fmt(t.review.confidence, { pct: pct(ai.confidence) })}</span>
               </div>
               <div className="grid cols-4 small">
                 <div className="stat">
                   <b>{ai.notes.length}</b>
-                  <span>โน้ตที่ตรวจพบ</span>
+                  <span>{t.review.notesFound}</span>
                 </div>
                 <div className="stat">
                   <b>{ai.baseHz}</b>
-                  <span>Hz ของเสียง ด</span>
+                  <span>{t.review.doHz}</span>
                 </div>
                 <div className="stat">
                   <b>{ai.slotSec ? Math.round(ai.slotSec * 1000) : "-"}</b>
-                  <span>ms ต่อช่อง</span>
+                  <span>{t.review.msPerSlot}</span>
                 </div>
                 <div className="stat">
                   <b style={{ color: lowNotes ? "var(--warn)" : undefined }}>{lowNotes}</b>
-                  <span>โน้ตที่ควรฟังซ้ำ</span>
+                  <span>{t.review.relisten}</span>
                 </div>
               </div>
               {ai.notation && <NotationGrid slots={parseNotation(ai.notation)} />}
               {ai.tuning && (
                 <>
-                  <p className="small">ระบบเสียงที่วัดได้ (ด = {ai.tuning.baseHz} Hz) เทียบกับ 7 เสียงเท่า</p>
-                  <TuningChart steps={ai.tuning.steps} />
+                  <p className="small">{fmt(t.review.tuningMeasured, { hz: ai.tuning.baseHz })}</p>
+                  <TuningChart steps={ai.tuning.steps} title={t.viz.tuning} axis={t.viz.tuningAxis} />
                 </>
               )}
-              <p className="xs muted">วิธีวิเคราะห์: ตรวจจุดเริ่มเสียงจากพลังงาน วัดระดับเสียงด้วย autocorrelation (NSDF) ประมาณ ด ของวงจากค่าเฉลี่ยเชิงวงกลม แล้วจัดลงช่องจังหวะ</p>
+              <p className="xs muted">{t.review.method}</p>
             </section>
           )}
 
           <form action={reviewSegment} className="card stack">
             <input type="hidden" name="segmentId" value={sg.id} />
-            <h3>การตัดสิน</h3>
+            <h3>{t.review.decision}</h3>
             {isMusic && (
               <div className="grid cols-3">
                 <label>
-                  เพลง
+                  {t.review.work}
                   <select id="workId" name="workId" defaultValue={sg.work_id ?? ""}>
-                    <option value="">— ไม่ระบุ —</option>
+                    <option value="">{t.review.unspecified}</option>
                     {works.map((w) => (
                       <option key={w.id} value={w.id}>
                         {w.title}
@@ -163,9 +167,9 @@ export default async function ReviewPage({ params, searchParams }: { params: Pro
                   </select>
                 </label>
                 <label>
-                  ทาง
+                  {t.review.variant}
                   <select id="variantId" name="variantId" defaultValue={sg.variant_id ?? ""}>
-                    <option value="">— ทางใหม่ (กรอกด้านล่าง) —</option>
+                    <option value="">{t.review.newVariantOpt}</option>
                     {variants.map((v) => (
                       <option key={v.id} value={v.id}>
                         {works.find((w) => w.id === v.work_id)?.title} · {v.name}
@@ -174,16 +178,16 @@ export default async function ReviewPage({ params, searchParams }: { params: Pro
                   </select>
                 </label>
                 <label>
-                  ชื่อทางใหม่
-                  <input id="newVariant" name="newVariant" type="text" placeholder={sg.person ? `เช่น ทาง${sg.person.replace(" (นามสมมติ)", "")}` : ""} />
+                  {t.review.newVariant}
+                  <input id="newVariant" name="newVariant" type="text" placeholder={sg.person ? fmt(t.review.newVariantPh, { name: sg.person.replace(" (นามสมมติ)", "") }) : ""} />
                 </label>
               </div>
             )}
             {(isMusic || sg.kind === "tuning") && (
               <label>
-                เครื่องดนตรี
+                {t.review.instrument}
                 <select id="instrumentId" name="instrumentId" defaultValue={sg.instrument_id ?? ""}>
-                  <option value="">— ไม่ระบุ —</option>
+                  <option value="">{t.review.unspecified}</option>
                   {instruments.map((i) => (
                     <option key={i.id} value={i.id}>
                       {i.name_th}
@@ -194,38 +198,39 @@ export default async function ReviewPage({ params, searchParams }: { params: Pro
             )}
             {isMusic && (
               <label>
-                โน้ตที่รับรอง
+                {t.review.notation}
                 <textarea id="notation" name="notation" className="notation" defaultValue={suggestedNotation} />
-                <span className="hint">แก้รายห้องได้ ห้องละ 4 ช่อง คั่นด้วย | ใช้ - แทนช่องที่ไม่ตี และ ดํ แทนเสียงสูง</span>
+                <span className="hint">{t.review.notationHint}</span>
               </label>
             )}
             {(sg.kind === "interview" || isMusic) && (
               <label>
-                {sg.kind === "interview" ? "คำถอดความที่รับรอง" : "หมายเหตุประกอบ (ถ้ามี)"}
+                {sg.kind === "interview" ? t.review.transcript : t.review.remark}
                 <textarea key={sg.transcript ? "filled" : "empty"} id="transcript" name="transcript" defaultValue={sg.transcript ?? ""} style={{ minHeight: sg.kind === "interview" ? 200 : 80 }} />
               </label>
             )}
             {isMusic && (
               <div className="row">
                 <label className="check">
-                  <input type="checkbox" name="makeLesson" /> สร้างบทเรียนจากส่วนนี้หลังรับรอง
+                  <input type="checkbox" name="makeLesson" /> {t.review.makeLesson}
                 </label>
                 <label style={{ flex: "0 1 200px" }}>
-                  <span className="hint">ตัวชี้วัด</span>
+                  <span className="hint">{t.review.indicator}</span>
                   <input id="indicator" name="indicator" type="text" defaultValue="ศ 2.2 ม.2/1" />
                 </label>
               </div>
             )}
             <label>
-              บันทึกของผู้ตรวจ
-              <input id="reviewNote" name="reviewNote" type="text" placeholder="เช่น แก้ห้อง 5 จาก ม ซ ล เป็น ม ซ ซ" />
+              {t.review.note}
+              <input id="reviewNote" name="reviewNote" type="text" placeholder={t.review.notePh} />
             </label>
             <div className="row">
               <button className="btn" type="submit" name="decision" value="approve">
-                รับรองและนำเข้าคลัง
+                <Icon name="check" size={16} />
+                {t.review.approve}
               </button>
               <button className="btn danger" type="submit" name="decision" value="reject">
-                ไม่ผ่าน
+                {t.review.reject}
               </button>
             </div>
           </form>
@@ -233,31 +238,31 @@ export default async function ReviewPage({ params, searchParams }: { params: Pro
 
         <aside className="stack-lg">
           <section className="card">
-            <h3>เงื่อนไขจากผู้ให้ข้อมูล</h3>
+            <h3>{t.review.conditions}</h3>
             <AccessBadge level={sg.access_level} revoked={!!sg.revoked_at} />
             <p className="small">{sg.scope_note}</p>
             {json<string[]>(sg.tk_labels, []).map((l) => (
               <div key={l} className="small">
-                <span className="badge">{l}</span> {TK_LABELS.find((t) => t.code === l)?.th}
+                <span className="badge">{l}</span> {(t.tk as Record<string, string>)[l]}
               </div>
             ))}
           </section>
           {ai && ai.notes.length > 0 && (
             <section className="card">
-              <h3>โน้ตที่ตรวจพบ</h3>
+              <h3>{t.review.notesFound}</h3>
               <div className="tbl" style={{ maxHeight: 360, overflowY: "auto" }}>
                 <table>
                   <thead>
                     <tr>
-                      <th className="num">วินาที</th>
-                      <th>โน้ต</th>
+                      <th className="num">{t.review.colSec}</th>
+                      <th>{t.review.colNote}</th>
                       <th className="num">Hz</th>
                       <th className="num">±cents</th>
                     </tr>
                   </thead>
                   <tbody>
                     {ai.notes.map((n, i) => (
-                      <tr key={i} style={n.clarity < 0.8 || Math.abs(n.deviation) > 40 ? { background: "var(--warn-soft)" } : undefined}>
+                      <tr key={i} style={n.clarity < 0.8 || Math.abs(n.deviation) > 40 ? { background: "var(--warn-wash)" } : undefined}>
                         <td className="num">{n.t.toFixed(2)}</td>
                         <td>
                           {n.note}

@@ -2,16 +2,12 @@
 import { useEffect, useState } from "react";
 import type { MediaJob } from "@/lib/studio";
 import { attachToLesson } from "@/app/studio/actions";
+import { useT } from "@/lib/i18n/client";
+import { fmt } from "@/lib/i18n/config";
 
 type Lesson = { id: number; title: string };
 
-const STATUS: Record<MediaJob["status"], [string, string]> = {
-  queued: ["รอคิว GPU", ""],
-  loading: ["กำลังโหลดโมเดล", "l2"],
-  running: ["กำลังสร้าง", "warn"],
-  done: ["เสร็จแล้ว", "ok"],
-  failed: ["ไม่สำเร็จ", "crit"],
-};
+const STATUS: Record<MediaJob["status"], string> = { queued: "", loading: "l2", running: "warn", done: "ok", failed: "crit" };
 
 const IDEAS = {
   image: ["ระนาดเอกวางบนศาลาไม้ในวัดอีสาน แสงเช้า", "มือนักเรียนจับไม้ตีระนาดอย่างถูกวิธี มุมใกล้", "วงพิณพาทย์ครบวงในห้องเรียนดนตรี มองจากด้านบน"],
@@ -19,6 +15,7 @@ const IDEAS = {
 };
 
 export function StudioClient({ lessons, initialJobs, enabled }: { lessons: Lesson[]; initialJobs: MediaJob[]; enabled: boolean }) {
+  const { t: T } = useT();
   const [kind, setKind] = useState<"image" | "video">("image");
   const [th, setTh] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -52,9 +49,9 @@ export function StudioClient({ lessons, initialJobs, enabled }: { lessons: Lesso
       const r = await fetch("/api/studio/prompt", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text: th, kind }) });
       const j = (await r.json()) as { prompt?: string; error?: string };
       if (j.prompt) setPrompt(j.prompt);
-      else setMsg({ t: j.error ?? "สร้าง prompt ไม่สำเร็จ", kind: "crit" });
+      else setMsg({ t: j.error ?? T.studio.promptFailed, kind: "crit" });
     } catch {
-      setMsg({ t: "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้", kind: "crit" });
+      setMsg({ t: T.studio.offline, kind: "crit" });
     } finally {
       setBusy("");
     }
@@ -71,9 +68,9 @@ export function StudioClient({ lessons, initialJobs, enabled }: { lessons: Lesso
         body: JSON.stringify({ kind, promptTh: th, prompt, size, seconds, lessonId: lessonId ? Number(lessonId) : null }),
       });
       const j = (await r.json()) as { id?: number; error?: string };
-      if (!r.ok) setMsg({ t: j.error ?? "ส่งงานไม่สำเร็จ", kind: "crit" });
+      if (!r.ok) setMsg({ t: j.error ?? T.studio.submitFailed, kind: "crit" });
       else {
-        setMsg({ t: kind === "video" ? "ส่งงานแล้ว วิดีโอใช้เวลาสร้างราว 10–15 นาที ปิดหน้านี้ได้ งานจะทำต่อบนเซิร์ฟเวอร์" : "ส่งงานแล้ว รูปจะเสร็จในราว 20 วินาทีถึง 1 นาที", kind: "ok" });
+        setMsg({ t: kind === "video" ? T.studio.sentVideo : T.studio.sentImage, kind: "ok" });
         const l = await fetch("/api/studio/jobs");
         if (l.ok) setJobs(((await l.json()) as { jobs: MediaJob[] }).jobs);
       }
@@ -86,15 +83,15 @@ export function StudioClient({ lessons, initialJobs, enabled }: { lessons: Lesso
     <div className="split">
       <div className="stack-lg">
         <section className="stack">
-          <h2>ผลงาน</h2>
-          {jobs.length === 0 && <div className="empty">ยังไม่มีสื่อที่สร้าง ลองสร้างรูปแรกจากแบบฟอร์มด้านขวา</div>}
+          <h2>{T.studio.results}</h2>
+          {jobs.length === 0 && <div className="empty">{T.studio.empty}</div>}
           <div className="grid cols-2">
             {jobs.map((j) => (
               <article key={j.id} className="card">
                 <div className="row between">
                   <span className="row">
-                    <span className="badge ind">{j.kind === "video" ? "วิดีโอ" : "รูปภาพ"}</span>
-                    <span className={`badge ${STATUS[j.status][1]}`}>{STATUS[j.status][0]}</span>
+                    <span className="badge ind">{j.kind === "video" ? T.studio.video : T.studio.image}</span>
+                    <span className={`badge ${STATUS[j.status]}`}>{T.studio[j.status]}</span>
                   </span>
                   <span className="mono xs muted">#{j.id}</span>
                 </div>
@@ -103,7 +100,7 @@ export function StudioClient({ lessons, initialJobs, enabled }: { lessons: Lesso
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={`/api/studio/file/${j.id}`} alt={j.prompt_th || j.prompt} style={{ width: "100%", borderRadius: 8, display: "block" }} />
                     <span className="badge warn" style={{ position: "absolute", top: 8, left: 8 }}>
-                      สร้างโดย AI
+                      {T.common.aiGenerated}
                     </span>
                   </figure>
                 )}
@@ -111,7 +108,7 @@ export function StudioClient({ lessons, initialJobs, enabled }: { lessons: Lesso
                   <figure style={{ margin: 0, position: "relative" }}>
                     <video src={`/api/studio/file/${j.id}`} controls playsInline style={{ width: "100%", borderRadius: 8, display: "block" }} />
                     <span className="badge warn" style={{ position: "absolute", top: 8, left: 8 }}>
-                      สร้างโดย AI
+                      {T.common.aiGenerated}
                     </span>
                   </figure>
                 )}
@@ -121,25 +118,25 @@ export function StudioClient({ lessons, initialJobs, enabled }: { lessons: Lesso
                       <div style={{ width: `${Math.max(3, j.progress)}%`, height: "100%", background: "var(--bronze)", transition: "width .4s" }} />
                     </div>
                     <span className="xs muted">
-                      {j.status === "loading" ? "กำลังสลับโมเดลบน GPU" : j.status === "queued" ? "รองานก่อนหน้าบน GPU" : `${j.progress}%`}
+                      {j.status === "loading" ? T.studio.swapping : j.status === "queued" ? T.studio.waiting : `${j.progress}%`}
                     </span>
                   </div>
                 )}
                 {j.status === "failed" && <p className="small" style={{ color: "var(--crit)" }}>{j.error}</p>}
                 {j.prompt_th && <p className="small">{j.prompt_th}</p>}
                 <details className="xs muted">
-                  <summary>prompt ที่ใช้</summary>
+                  <summary>{T.studio.promptUsed}</summary>
                   {j.prompt}
                 </details>
                 <span className="xs muted">
                   {j.size}
-                  {j.kind === "video" ? ` · ${j.seconds} วินาที` : ""} · {j.creator}
+                  {j.kind === "video" ? ` · ${fmt(T.studio.seconds, { n: j.seconds ?? 0 })}` : ""} · {j.creator}
                 </span>
                 {j.status === "done" && (
                   <form action={attachToLesson} className="row">
                     <input type="hidden" name="jobId" value={j.id} />
-                    <select name="lessonId" defaultValue={j.lesson_id ?? ""} aria-label="แนบกับบทเรียน" style={{ flex: 1, width: "auto" }}>
-                      <option value="">— ไม่แนบกับบทเรียน —</option>
+                    <select name="lessonId" defaultValue={j.lesson_id ?? ""} aria-label={T.studio.attachTo} style={{ flex: 1, width: "auto" }}>
+                      <option value="">{T.studio.noLesson}</option>
                       {lessons.map((l) => (
                         <option key={l.id} value={l.id}>
                           {l.title}
@@ -147,7 +144,7 @@ export function StudioClient({ lessons, initialJobs, enabled }: { lessons: Lesso
                       ))}
                     </select>
                     <button className="btn ghost sm" type="submit">
-                      บันทึก
+                      {T.studio.save}
                     </button>
                   </form>
                 )}
@@ -159,18 +156,18 @@ export function StudioClient({ lessons, initialJobs, enabled }: { lessons: Lesso
 
       <aside className="stack-lg">
         <form className="card stack" onSubmit={submit}>
-          <h3>สร้างสื่อใหม่</h3>
-          {!enabled && <div className="notice warn small">ยังไม่ได้ตั้งค่าเซิร์ฟเวอร์ Unsloth ใน .env.local</div>}
+          <h3>{T.studio.create}</h3>
+          {!enabled && <div className="notice warn small">{T.studio.notConfigured}</div>}
           <div className="row">
             <button type="button" className={`btn sm ${kind === "image" ? "" : "ghost"}`} onClick={() => pickKind("image")}>
-              รูปภาพ
+              {T.studio.image}
             </button>
             <button type="button" className={`btn sm ${kind === "video" ? "" : "ghost"}`} onClick={() => pickKind("video")}>
-              วิดีโอสั้น
+              {T.studio.shortVideo}
             </button>
           </div>
           <label>
-            อธิบายสิ่งที่ต้องการ (ภาษาไทย)
+            {T.studio.describe}
             <textarea id="studio-th" value={th} onChange={(e) => setTh(e.target.value)} style={{ minHeight: 90 }} placeholder={IDEAS[kind][0]} />
           </label>
           <div className="row">
@@ -181,16 +178,16 @@ export function StudioClient({ lessons, initialJobs, enabled }: { lessons: Lesso
             ))}
           </div>
           <button type="button" className="btn ghost" onClick={draft} disabled={!th.trim() || busy !== "" || !enabled}>
-            {busy === "prompt" ? "AI กำลังเขียน prompt…" : "ให้ AI เขียน prompt ภาษาอังกฤษ"}
+            {busy === "prompt" ? T.studio.writing : T.studio.writePrompt}
           </button>
           <label>
-            Prompt (ภาษาอังกฤษ)
+            {T.studio.promptEn}
             <textarea id="studio-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} style={{ minHeight: 110 }} required />
-            <span className="hint">โมเดลรูปและวิดีโอเข้าใจภาษาอังกฤษดีที่สุด แก้ไขได้ก่อนส่ง</span>
+            <span className="hint">{T.studio.promptHint}</span>
           </label>
           <div className="grid cols-2">
             <label>
-              ขนาด
+              {T.studio.size}
               <select id="studio-size" value={size} onChange={(e) => setSize(e.target.value)}>
                 {(kind === "video" ? ["1280x704", "704x1280"] : ["1024x768", "768x1024", "1024x1024", "1280x720"]).map((s) => (
                   <option key={s}>{s}</option>
@@ -199,15 +196,15 @@ export function StudioClient({ lessons, initialJobs, enabled }: { lessons: Lesso
             </label>
             {kind === "video" && (
               <label>
-                ความยาว (วินาที)
+                {T.studio.length}
                 <input id="studio-sec" type="number" min={1} max={5} value={seconds} onChange={(e) => setSeconds(Number(e.target.value))} />
               </label>
             )}
           </div>
           <label>
-            แนบกับบทเรียน
+            {T.studio.attachTo}
             <select id="studio-lesson" value={lessonId} onChange={(e) => setLessonId(e.target.value)}>
-              <option value="">— ภายหลัง —</option>
+              <option value="">{T.studio.later}</option>
               {lessons.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.title}
@@ -216,17 +213,17 @@ export function StudioClient({ lessons, initialJobs, enabled }: { lessons: Lesso
             </select>
           </label>
           <button className="btn alt" type="submit" disabled={busy !== "" || !prompt.trim() || !enabled}>
-            {kind === "video" ? "สร้างวิดีโอ" : "สร้างรูป"}
+            {kind === "video" ? T.studio.makeVideo : T.studio.makeImage}
           </button>
           {msg && <div className={`notice small ${msg.kind}`}>{msg.t}</div>}
         </form>
         <section className="card small">
-          <h3>ข้อควรระวัง</h3>
+          <h3>{T.studio.caution}</h3>
           <ul style={{ margin: 0, paddingLeft: "1.1em", display: "grid", gap: 4 }}>
-            <li>สื่อจาก AI เป็นภาพประกอบเท่านั้น รายละเอียดเครื่องดนตรีอาจไม่ตรงของจริง ใช้สอนวิธีบรรเลงไม่ได้</li>
-            <li>ไม่เข้าคลังความรู้และไม่ถูกใช้ตอบคำถามของครูผู้ช่วย AI</li>
-            <li>ห้ามสร้างภาพเลียนแบบครูภูมิปัญญาที่มีตัวตนจริง หรือพิธีกรรมที่ชุมชนจำกัดการเผยแพร่</li>
-            <li>เซิร์ฟเวอร์มี GPU ชุดเดียว งานจะทำทีละชิ้น ระหว่างสร้างวิดีโอ ครูผู้ช่วย AI จะตอบแบบค้นคืนจากคลังแทน</li>
+            <li>{T.studio.c1}</li>
+            <li>{T.studio.c2}</li>
+            <li>{T.studio.c3}</li>
+            <li>{T.studio.c4}</li>
           </ul>
         </section>
       </aside>

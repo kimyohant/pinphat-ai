@@ -3,29 +3,38 @@ import { notFound } from "next/navigation";
 import { getUser } from "@/lib/auth";
 import { canSee } from "@/lib/access";
 import { getLesson, lessonLevel } from "@/lib/lessons";
+import { getT } from "@/lib/i18n/server";
+import { fmt } from "@/lib/i18n/config";
 import { AccessBadge } from "@/components/AccessBadge";
 import { PracticeCoach } from "@/components/PracticeCoach";
+import { Icon } from "@/components/ui/Icon";
 import { lessonMedia } from "@/lib/studio";
 
 export default async function LessonPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const user = await getUser();
+  const [{ id }, user, { t }] = await Promise.all([params, getUser(), getT()]);
   const l = getLesson(Number(id));
   if (!l) notFound();
   const level = lessonLevel(l);
   const media = lessonMedia(l.id);
   if (!canSee(user.role, level)) {
     return (
-      <main className="page">
-        <div className="notice warn">บทเรียนนี้อยู่ในระดับสิทธิ์ที่คุณยังเข้าถึงไม่ได้ <Link href="/login">เข้าสู่ระบบ</Link></div>
+      <main id="main" className="page">
+        <div className="empty">
+          <Icon name="lock" size={28} />
+          <p>{t.learn.locked}</p>
+          <Link className="btn" href="/login">
+            {t.shell.signIn}
+          </Link>
+        </div>
       </main>
     );
   }
   return (
-    <main className="page">
+    <main id="main" className="page">
       <div className="page-head">
         <Link href="/learn" className="small">
-          ← บทเรียนทั้งหมด
+          <Icon name="back" size={16} />
+          {t.learn.all}
         </Link>
         <div className="row">
           <h1>{l.title}</h1>
@@ -35,26 +44,27 @@ export default async function LessonPage({ params }: { params: Promise<{ id: str
         <div className="row small muted">
           <span>{l.instrument}</span>
           <span>{l.grade}</span>
-          <span className="mono">ตัวชี้วัด {l.indicator}</span>
+          <span className="mono">{fmt(t.learn.indicator, { code: l.indicator ?? "-" })}</span>
           {l.person && (
             <span>
-              ถ่ายทอดโดย <b>{l.person}</b> · {l.variant}
+              {t.learn.taughtBy} <b>{l.person}</b> · {l.variant}
             </span>
           )}
         </div>
       </div>
       {media.length > 0 && (
-        <section className="grid cols-3" aria-label="สื่อประกอบบทเรียน">
+        <section className="grid cols-3" aria-label={t.learn.media}>
           {media.map((m) => (
-            <figure key={m.id} className="card" style={{ margin: 0, position: "relative" }}>
+            <figure key={m.id} className="card" style={{ position: "relative" }}>
               {m.kind === "video" ? (
-                <video src={`/api/studio/file/${m.id}`} controls playsInline style={{ width: "100%", borderRadius: 8 }} />
+                <video src={`/api/studio/file/${m.id}`} controls playsInline style={{ width: "100%", borderRadius: "var(--r-media)" }} />
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={`/api/studio/file/${m.id}`} alt={m.prompt_th ?? ""} style={{ width: "100%", borderRadius: 8 }} />
+                <img src={`/api/studio/file/${m.id}`} alt={m.prompt_th ?? ""} style={{ width: "100%", borderRadius: "var(--r-media)" }} />
               )}
               <figcaption className="xs muted">
-                <span className="badge warn">สร้างโดย AI</span> ภาพประกอบ ไม่ใช่การบันทึกจริง{m.prompt_th ? ` · ${m.prompt_th}` : ""}
+                <span className="badge warn">{t.common.aiGenerated}</span> {t.common.illustration}
+                {m.prompt_th ? ` · ${m.prompt_th}` : ""}
               </figcaption>
             </figure>
           ))}

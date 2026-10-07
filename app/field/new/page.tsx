@@ -2,37 +2,37 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { all } from "@/lib/db";
 import { LEVELS, PROVINCES, TK_LABELS } from "@/lib/access";
+import { getT } from "@/lib/i18n/server";
+import { Icon } from "@/components/ui/Icon";
 import { createSession } from "../actions";
-
-const ERR: Record<string, string> = {
-  missing: "กรอกชื่อรอบบันทึกและเลือกระดับการเข้าถึงก่อน",
-  person: "เลือกผู้ให้ข้อมูลเดิม หรือกรอกชื่อผู้ให้ข้อมูลใหม่",
-};
 
 export default async function NewSessionPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   await requireRole("collector", "curator");
+  const { t } = await getT();
+  const ERR: Record<string, string> = { missing: t.fieldNew.errMissing, person: t.fieldNew.errPerson };
   const { error } = await searchParams;
   const persons = all<{ id: number; display_name: string; province: string }>("SELECT id, display_name, province FROM persons ORDER BY display_name");
   return (
-    <main className="page" style={{ maxWidth: 900 }}>
+    <main id="main" className="page" style={{ maxWidth: 900 }}>
       <div className="page-head">
         <Link href="/field" className="small">
-          ← รอบบันทึกทั้งหมด
+          <Icon name="back" size={16} />
+          {t.fieldNew.back}
         </Link>
-        <h1>เริ่มรอบบันทึกใหม่</h1>
-        <p>อธิบายวัตถุประสงค์และการใช้ข้อมูลให้ผู้ให้ข้อมูลฟังด้วยภาษาที่เข้าใจง่ายก่อนเริ่มบันทึก ระดับการเข้าถึงเปลี่ยนหรือถอนได้ภายหลัง</p>
+        <h1>{t.fieldNew.title}</h1>
+        <p>{t.fieldNew.lede}</p>
       </div>
-      {error && <div className="notice crit">{ERR[error] ?? "ข้อมูลไม่ครบ"}</div>}
+      {error && <div className="notice crit">{ERR[error] ?? t.fieldNew.errOther}</div>}
       <form action={createSession} className="stack-lg">
         <fieldset>
-          <legend>รอบบันทึก</legend>
+          <legend>{t.fieldNew.session}</legend>
           <label>
-            ชื่อรอบบันทึก
-            <input id="title" name="title" type="text" required placeholder="เช่น บันทึกระนาดเอกและสัมภาษณ์ประวัติการสืบทอด" />
+            {t.fieldNew.sessionTitle}
+            <input id="title" name="title" type="text" required placeholder={t.fieldNew.sessionTitlePh} />
           </label>
           <div className="grid cols-3">
             <label>
-              จังหวัด
+              {t.fieldNew.province}
               <select id="province" name="province" defaultValue="สกลนคร">
                 {PROVINCES.map((p) => (
                   <option key={p}>{p}</option>
@@ -40,26 +40,26 @@ export default async function NewSessionPage({ searchParams }: { searchParams: P
               </select>
             </label>
             <label>
-              อำเภอ
+              {t.fieldNew.district}
               <input id="district" name="district" type="text" />
             </label>
             <label>
-              วันที่บันทึก
+              {t.fieldNew.date}
               <input id="recordedOn" name="recordedOn" type="date" />
             </label>
           </div>
           <label>
-            สถานที่
-            <input id="place" name="place" type="text" placeholder="เช่น บ้านครูภูมิปัญญา ศาลาวัด" />
+            {t.fieldNew.place}
+            <input id="place" name="place" type="text" placeholder={t.fieldNew.placePh} />
           </label>
         </fieldset>
 
         <fieldset>
-          <legend>ผู้ให้ข้อมูล</legend>
+          <legend>{t.fieldNew.contributor}</legend>
           <label>
-            เลือกจากทะเบียน
+            {t.fieldNew.fromRegister}
             <select id="personId" name="personId" defaultValue="">
-              <option value="">— ผู้ให้ข้อมูลใหม่ (กรอกด้านล่าง) —</option>
+              <option value="">{t.fieldNew.newPersonOpt}</option>
               {persons.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.display_name} · {p.province}
@@ -69,25 +69,25 @@ export default async function NewSessionPage({ searchParams }: { searchParams: P
           </label>
           <div className="grid cols-2">
             <label>
-              ชื่อผู้ให้ข้อมูลใหม่
+              {t.fieldNew.newName}
               <input id="newPersonName" name="newPersonName" type="text" />
-              <span className="hint">ใช้นามสมมติได้ ถ้าผู้ให้ข้อมูลไม่ประสงค์เปิดเผยชื่อ</span>
+              <span className="hint">{t.fieldNew.newNameHint}</span>
             </label>
             <label>
-              บทบาท
+              {t.fieldNew.role}
               <select id="newPersonRole" name="newPersonRole" defaultValue="master">
-                <option value="master">ครูภูมิปัญญา</option>
-                <option value="artist">ศิลปิน / ผู้บรรเลง</option>
+                <option value="master">{t.fieldNew.master}</option>
+                <option value="artist">{t.fieldNew.artist}</option>
               </select>
             </label>
             <label>
-              ปีเกิด (ค.ศ.)
+              {t.fieldNew.birthYear}
               <input id="birthYear" name="birthYear" type="number" min={1900} max={2020} />
             </label>
             <label>
-              เรียนมาจาก (ครู)
+              {t.fieldNew.learnedFrom}
               <select id="teacherId" name="teacherId" defaultValue="">
-                <option value="">— ไม่ระบุ —</option>
+                <option value="">{t.review.unspecified}</option>
                 {persons.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.display_name}
@@ -97,35 +97,35 @@ export default async function NewSessionPage({ searchParams }: { searchParams: P
             </label>
           </div>
           <label className="check">
-            <input type="checkbox" name="isPseudonym" defaultChecked /> ชื่อนี้เป็นนามสมมติ
+            <input type="checkbox" name="isPseudonym" defaultChecked /> {t.fieldNew.pseudonym}
           </label>
           <label>
-            ประวัติโดยย่อ
+            {t.fieldNew.bio}
             <textarea id="newPersonBio" name="newPersonBio" style={{ minHeight: 70 }} />
           </label>
         </fieldset>
 
         <fieldset>
-          <legend>ความยินยอม</legend>
-          <div className="radio-cards" role="radiogroup" aria-label="ระดับการเข้าถึง">
+          <legend>{t.fieldNew.consent}</legend>
+          <div className="radio-cards" role="radiogroup" aria-label={t.consent.levelLabel}>
             {LEVELS.map((l) => (
               <label key={l.level}>
                 <input type="radio" name="accessLevel" value={l.level} defaultChecked={l.level === 2} required />
                 <b>
-                  {l.short} · {l.name}
+                  {l.short} · {t.levels[l.level]}
                 </b>
-                <span className="xs muted">{l.desc}</span>
+                <span className="xs muted">{t.levelDesc[l.level]}</span>
               </label>
             ))}
           </div>
           <div className="stack">
-            <span className="small">ป้ายเงื่อนไขทางวัฒนธรรม (Local Contexts TK Labels)</span>
+            <span className="small">{t.fieldNew.tkLabels}</span>
             <div className="grid cols-2">
-              {TK_LABELS.map((t) => (
-                <label key={t.code} className="check">
-                  <input type="checkbox" name={`tk:${t.code}`} defaultChecked={t.code === "TK A"} />
+              {TK_LABELS.map((tk) => (
+                <label key={tk.code} className="check">
+                  <input type="checkbox" name={`tk:${tk.code}`} defaultChecked={tk.code === "TK A"} />
                   <span>
-                    <b className="mono xs">{t.code}</b> {t.th}
+                    <b className="mono xs">{tk.code}</b> {(t.tk as Record<string, string>)[tk.code]}
                   </span>
                 </label>
               ))}
@@ -133,35 +133,35 @@ export default async function NewSessionPage({ searchParams }: { searchParams: P
           </div>
           <div className="grid cols-2">
             <label>
-              วิธีให้ความยินยอม
+              {t.fieldNew.method}
               <select id="method" name="method" defaultValue="voice">
-                <option value="signature">ลงลายมือชื่อ</option>
-                <option value="voice">บันทึกเสียงยินยอม</option>
-                <option value="witness">มีพยานรับรอง</option>
+                <option value="signature">{t.fieldNew.mSignature}</option>
+                <option value="voice">{t.fieldNew.mVoice}</option>
+                <option value="witness">{t.fieldNew.mWitness}</option>
               </select>
             </label>
             <label>
-              หลักฐานความยินยอม
+              {t.fieldNew.evidence}
               <input id="evidence" name="evidence" type="file" accept="audio/*,image/*,application/pdf" />
-              <span className="hint">ไฟล์เสียงหรือภาพใบยินยอม เก็บแยกและเห็นได้เฉพาะผู้ดูแล</span>
+              <span className="hint">{t.fieldNew.evidenceHint}</span>
             </label>
           </div>
           <label>
-            ขอบเขตการใช้ที่ตกลงกัน
-            <textarea id="scopeNote" name="scopeNote" style={{ minHeight: 70 }} placeholder="เช่น ใช้ในสถานศึกษาได้ ไม่ใช้เชิงพาณิชย์ ขอให้ระบุชื่อครูทุกครั้ง" />
+            {t.fieldNew.scope}
+            <textarea id="scopeNote" name="scopeNote" style={{ minHeight: 70 }} placeholder={t.fieldNew.scopePh} />
           </label>
         </fieldset>
 
         <label>
-          บันทึกของผู้เก็บข้อมูล
+          {t.fieldNew.notes}
           <textarea id="notes" name="notes" style={{ minHeight: 70 }} />
         </label>
         <div className="row">
           <button className="btn" type="submit">
-            บันทึกความยินยอมและเริ่มรอบบันทึก
+            {t.fieldNew.submit}
           </button>
           <Link className="btn ghost" href="/field">
-            ยกเลิก
+            {t.fieldNew.cancel}
           </Link>
         </div>
       </form>

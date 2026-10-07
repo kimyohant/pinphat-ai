@@ -62,7 +62,7 @@ export function indexSegment(segmentId: number): number {
   run("DELETE FROM kb_chunks WHERE source_type = 'segment' AND source_id = ?", segmentId);
   const sg = one<SegmentRow>(SEGMENT_SQL, segmentId);
   if (!sg || sg.status !== "approved" || sg.revoked_at || sg.access_level == null || sg.access_level >= 5) return 0;
-  const cite = `${sg.code} · ส่วนย่อย #${sg.id}${sg.start_ms != null ? ` · ${fmtTime(sg.start_ms)}–${fmtTime(sg.end_ms)}` : ""}`;
+  const cite = `${sg.code} · ส่วนย่อย #${sg.id}${sg.start_ms != null ? ` · ${fmtTime(sg.start_ms)} → ${fmtTime(sg.end_ms)}` : ""}`;
   const texts: { title: string; text: string }[] = [];
   const who = sg.person ?? "ไม่ระบุผู้ให้ข้อมูล";
   if (sg.kind === "interview" && sg.transcript) {

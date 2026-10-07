@@ -1,18 +1,15 @@
 "use client";
 import Link from "next/link";
 import { Fragment, useEffect, useRef, useState } from "react";
+import { useT } from "@/lib/i18n/client";
+import { th as TH } from "@/lib/i18n/th";
+import { Icon } from "@/components/ui/Icon";
 
 type Source = { n: number; title: string; citation: string; level: number; levelName: string; sourceType: string; sourceId: number | null };
 type Msg = { role: "user" | "assistant"; content: string; sources?: Source[]; mode?: string; status?: string; flagged?: boolean };
 
-const SUGGEST = [
-  "ควรเริ่มฝึกระนาดอย่างไร",
-  "ทางของครู ข. ต่างจากทางครู ก. อย่างไร",
-  "อ่านโน้ตตัวเลขไทยอย่างไร",
-  "ครู ค. เรียนดนตรีกับใคร",
-  "ระนาดของวงครู ก. เทียบเสียงต่างจาก 7 เสียงเท่าอย่างไร",
-  "เพลงในงานบุญประจำปีใช้อย่างไร",
-];
+// คลังบันทึกเป็นภาษาไทย ปุ่มแนะนำจึงแสดงตามภาษาที่เลือก แต่ส่งคำถามภาษาไทยไปค้น
+const SUGGEST = ["s1", "s2", "s3", "s4", "s5", "s6"] as const;
 
 function withCites(text: string, sources: Source[] = []) {
   return text.split(/(\[\d+\])/g).map((p, i) => {
@@ -28,6 +25,7 @@ function withCites(text: string, sources: Source[] = []) {
 }
 
 export function TutorChat({ initial }: { initial?: string }) {
+  const { t: T, locale } = useT();
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -73,7 +71,7 @@ export function TutorChat({ initial }: { initial?: string }) {
         }
       }
     } catch {
-      update((m) => ({ ...m, content: "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองอีกครั้ง" }));
+      update((m) => ({ ...m, content: T.tutor.offline }));
     } finally {
       setBusy(false);
     }
@@ -101,11 +99,11 @@ export function TutorChat({ initial }: { initial?: string }) {
     <div className="stack-lg">
       {msgs.length === 0 && (
         <div className="stack">
-          <span className="small muted">ลองถาม</span>
+          <span className="small muted">{T.tutor.suggestions}</span>
           <div className="row">
-            {SUGGEST.map((s) => (
-              <button key={s} className="btn ghost sm" onClick={() => ask(s)}>
-                {s}
+            {SUGGEST.map((k) => (
+              <button key={k} className="btn ghost sm" onClick={() => ask(TH.tutor[k])}>
+                {T.tutor[k]}
               </button>
             ))}
           </div>
@@ -119,14 +117,14 @@ export function TutorChat({ initial }: { initial?: string }) {
             </div>
           ) : (
             <div key={i} className="msg ai">
-              {m.content ? withCites(m.content, m.sources) : <span className="muted">{m.status ?? "กำลังค้นคลังความรู้…"}</span>}
+              {m.content ? withCites(m.content, m.sources) : <span className="muted">{m.status ?? T.tutor.searching}</span>}
               {m.sources && m.sources.length > 0 && (
                 <div className="sources">
                   {m.sources.map((s) => (
                     <div key={s.n} id={`src-${s.n}`} className="source">
                       <span className="n">[{s.n}]</span>
                       <span>
-                        <b>{s.title}</b> <span className={`badge l${s.level}`}>{s.levelName}</span>
+                        <b>{s.title}</b> <span className={`badge l${s.level}`}>{T.levels[s.level as 1 | 2 | 3 | 4 | 5] ?? s.levelName}</span>
                         <br />
                         <span className="muted">
                           {s.sourceType === "segment" ? <Link href={`/archive#seg-${s.sourceId}`}>{s.citation}</Link> : s.citation}
@@ -138,12 +136,12 @@ export function TutorChat({ initial }: { initial?: string }) {
               )}
               {m.mode && (
                 <div className="row xs muted" style={{ marginTop: 8 }}>
-                  <span>{m.mode === "llm" ? "ตอบโดย LLM จากแหล่งข้างต้น" : m.mode === "retrieval" ? "ข้อความจากคลังโดยตรง" : "ไม่พบแหล่งข้อมูล"}</span>
+                  <span>{m.mode === "llm" ? T.tutor.modeLlm : m.mode === "retrieval" ? T.tutor.modeRetrieval : T.tutor.modeNone}</span>
                   {m.flagged ? (
-                    <span className="badge ok">ส่งให้ผู้เชี่ยวชาญตรวจแล้ว</span>
+                    <span className="badge ok">{T.tutor.flagged}</span>
                   ) : (
                     <button className="btn ghost sm" onClick={() => flag(i)}>
-                      แจ้งคำตอบผิด
+                      {T.tutor.flag}
                     </button>
                   )}
                 </div>
@@ -165,12 +163,13 @@ export function TutorChat({ initial }: { initial?: string }) {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="พิมพ์คำถาม เช่น ควรจับไม้ตีอย่างไร"
+          placeholder={T.tutor.placeholder}
           style={{ flex: 1, width: "auto" }}
-          aria-label="คำถาม"
+          aria-label={T.tutor.question}
         />
         <button className="btn" type="submit" disabled={busy || !input.trim()}>
-          ถาม
+          <Icon name="arrow" size={16} />
+          {T.tutor.ask}
         </button>
       </form>
     </div>

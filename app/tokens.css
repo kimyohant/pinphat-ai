@@ -1,0 +1,318 @@
+/*
+  Pinphat AI · design contract "ผ้าครามสกล"
+  The ground is handwoven cotton, the ink is indigo dye, the one accent is the bronze of the khong wong.
+  Gradients follow how indigo cloth is actually made: every dip into the vat goes one step deeper,
+  so every gradient here moves within one hue, never across hues.
+  Components read semantic tokens only. Raw hex lives in this file and nowhere else.
+*/
+
+:root {
+  /* ── scale: indigo vat, from first dip to twelfth ── */
+  --indigo-50: #eef0f8;
+  --indigo-100: #dfe3f2;
+  --indigo-200: #c3c9e6;
+  --indigo-300: #96a1d4;
+  --indigo-400: #6676bd;
+  --indigo-500: #3e4fa3;
+  --indigo-600: #2b3a87;
+  --indigo-700: #212d6b;
+  --indigo-800: #18203f;
+  --indigo-900: #10152c;
+  --indigo-950: #0a0e1e;
+
+  /* ── scale: gong bronze, from hammered rim to polished boss ── */
+  --bronze-50: #faf4e8;
+  --bronze-100: #f3e6cb;
+  --bronze-200: #e8cf9c;
+  --bronze-300: #dab46a;
+  --bronze-400: #c89843;
+  --bronze-500: #b38129;
+  --bronze-600: #a6741e;
+  --bronze-700: #865c15;
+  --bronze-800: #654410;
+  --bronze-900: #45300d;
+
+  /* ── scale: cotton, unbleached ── */
+  --cotton-50: #fcfaf5;
+  --cotton-100: #f8f5ee;
+  --cotton-200: #f3efe6;
+  --cotton-300: #ece6d9;
+  --cotton-400: #e1d9c8;
+  --cotton-500: #cfc5b0;
+
+  /* ── type ── */
+  --font-display: var(--f-display), var(--f-lao-serif), "Leelawadee UI", Georgia, serif;
+  --font-sans: var(--f-sans), var(--f-lao-sans), "Leelawadee UI", system-ui, sans-serif;
+  --font-mono: var(--f-mono), ui-monospace, Consolas, monospace;
+
+  --t-micro: 0.75rem;
+  --t-meta: 0.8125rem;
+  --t-small: 0.875rem;
+  --t-body: 1rem;
+  --t-lede: 1.125rem;
+  --t-card: 1.0625rem;
+  --t-sec: 1.375rem;
+  --t-h1: clamp(1.625rem, 1.2rem + 1.6vw, 2.25rem);
+  --t-hero: clamp(2.25rem, 1.3rem + 4.2vw, 4.25rem);
+  --t-stat: clamp(1.5rem, 1.2rem + 1vw, 2rem);
+
+  --lh-tight: 1.25;
+  --lh-body: 1.6;
+  --lh-thai: 1.7;
+
+  /* ── space, 4px base ── */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+  --s8: 64px;
+  --s9: 96px;
+
+  /* ── radius by role, never by size ── */
+  --r-chip: 8px;
+  --r-control: 12px;
+  --r-card: 18px;
+  --r-media: 14px;
+  --r-sheet: 24px;
+  --r-commit: 999px;
+
+  /* ── layout and app chrome ── */
+  --pad: clamp(16px, 3.4vw, 32px);
+  --shell: 1180px;
+  --measure: 64ch;
+  --header-h: 56px;
+  --tabbar-h: 64px;
+  --sidebar-w: 268px;
+
+  /* ── z ladder: no raw z-index anywhere else ── */
+  --z-raised: 2;
+  --z-sticky: 20;
+  --z-bar: 40;
+  --z-scrim: 48;
+  --z-sheet: 50;
+  --z-toast: 60;
+
+  /* ── motion: one curve for the whole product ── */
+  --ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --dur-micro: 150ms;
+  --dur-state: 250ms;
+  --dur-narrate: 450ms;
+
+  /* the hero sits on the vat in both modes, so its text tokens do not change with the theme */
+  --on-vat: #f8f5ee;
+  --on-vat-2: rgba(248, 245, 238, 0.82);
+  --on-vat-3: rgba(248, 245, 238, 0.72);
+  --vat-glass: rgba(248, 245, 238, 0.09);
+  --vat-glass-2: rgba(248, 245, 238, 0.15);
+  --vat-line: rgba(248, 245, 238, 0.3);
+  --grad-gold-text: linear-gradient(100deg, #f3dca8 0%, #dab46a 45%, #c89843 100%);
+  --bone: #fbf1df;
+  --scrim: rgba(10, 14, 30, 0.5);
+  --scrim-soft: rgba(10, 14, 30, 0.45);
+}
+
+/* ═══════════════ กลางวัน · cotton in daylight ═══════════════ */
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --ground: var(--cotton-200);
+  --ground-2: var(--cotton-300);
+  --surface: var(--cotton-50);
+  --surface-2: var(--cotton-100);
+  --sunk: var(--cotton-300);
+
+  --ink: var(--indigo-800);
+  --ink-2: #474d68;
+  --ink-3: #62667c;
+  --ink-inverse: var(--cotton-100);
+
+  --line: rgba(24, 32, 63, 0.11);
+  --line-mid: rgba(24, 32, 63, 0.2);
+  --line-strong: rgba(24, 32, 63, 0.4);
+
+  /* the brand voice */
+  --brand: var(--indigo-600);
+  --brand-ink: var(--indigo-600);
+  --brand-wash: var(--indigo-50);
+  --brand-wash-2: var(--indigo-100);
+  --on-brand: var(--cotton-50);
+
+  --accent: var(--bronze-600);
+  --accent-ink: var(--bronze-700);
+  --accent-wash: var(--bronze-50);
+  --accent-wash-2: var(--bronze-100);
+  --on-accent: var(--indigo-950);
+
+  /* state as product facts */
+  --ok: #276445;
+  --ok-wash: #e3efe5;
+  --warn: #8f5600;
+  --warn-wash: #f6ead2;
+  --crit: #a2322a;
+  --crit-wash: #f6e1dc;
+
+  /* access levels L1 to L5 */
+  --l1: var(--ok);
+  --l1-wash: var(--ok-wash);
+  --l2: var(--indigo-600);
+  --l2-wash: var(--indigo-50);
+  --l3: var(--bronze-700);
+  --l3-wash: var(--bronze-50);
+  --l4: #8d3f6a;
+  --l4-wash: #f4e4ec;
+  --l5: #5d5f6b;
+  --l5-wash: #e9e7e2;
+
+  /* elevation as ring plus indigo-tinted shadow */
+  --lift-1: 0 0 0 1px rgba(24, 32, 63, 0.07), 0 1px 2px rgba(24, 32, 63, 0.05);
+  --lift-2: 0 0 0 1px rgba(24, 32, 63, 0.06), 0 8px 24px -8px rgba(24, 32, 63, 0.16);
+  --lift-3: 0 0 0 1px rgba(24, 32, 63, 0.05), 0 24px 48px -16px rgba(24, 32, 63, 0.28);
+  --focus-ring: 0 0 0 3px rgba(166, 116, 30, 0.45);
+
+  /* gradients: the dye bath */
+  --grad-vat: linear-gradient(158deg, #2f3f92 0%, #212d6b 38%, #151c40 72%, #0d1229 100%);
+  --grad-vat-glow: radial-gradient(120% 90% at 82% 8%, rgba(218, 180, 106, 0.22) 0%, rgba(218, 180, 106, 0) 46%),
+    radial-gradient(90% 70% at 0% 100%, rgba(62, 79, 163, 0.55) 0%, rgba(62, 79, 163, 0) 60%);
+  --grad-dip: linear-gradient(180deg, rgba(43, 58, 135, 0.1) 0%, rgba(43, 58, 135, 0.04) 46%, rgba(43, 58, 135, 0) 100%);
+  --grad-brand: linear-gradient(180deg, #3a4ba0 0%, #2b3a87 52%, #222f72 100%);
+  --grad-brand-hover: linear-gradient(180deg, #4153ac 0%, #31419a 52%, #26347c 100%);
+  --grad-bronze: linear-gradient(135deg, #e3c27f 0%, #c89843 34%, #a6741e 66%, #7e5512 100%);
+  --grad-bronze-soft: linear-gradient(135deg, #faf4e8 0%, #f3e6cb 100%);
+  --grad-surface: linear-gradient(180deg, var(--cotton-50) 0%, var(--cotton-100) 100%);
+  --grad-meter: linear-gradient(90deg, #96a1d4 0%, #3e4fa3 55%, #212d6b 100%);
+  --grad-wood: linear-gradient(180deg, #a86a37 0%, #8a5229 55%, #6b3d1d 100%);
+  --sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 55%);
+}
+
+/* ═══════════════ กลางคืน · indigo after dark ═══════════════ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ground: #0e1222;
+  --ground-2: #121730;
+  --surface: #161b32;
+  --surface-2: #1b2140;
+  --sunk: #0b0f1d;
+
+  --ink: #ece6d8;
+  --ink-2: #c3c0cd;
+  --ink-3: #9b9aae;
+  --ink-inverse: var(--indigo-900);
+
+  --line: rgba(236, 230, 216, 0.09);
+  --line-mid: rgba(236, 230, 216, 0.16);
+  --line-strong: rgba(236, 230, 216, 0.34);
+
+  --brand: #8e9cf0;
+  --brand-ink: #a9b4f5;
+  --brand-wash: rgba(142, 156, 240, 0.12);
+  --brand-wash-2: rgba(142, 156, 240, 0.2);
+  --on-brand: #0a0e1e;
+
+  --accent: #d9ad5e;
+  --accent-ink: #e6c27f;
+  --accent-wash: rgba(217, 173, 94, 0.1);
+  --accent-wash-2: rgba(217, 173, 94, 0.18);
+  --on-accent: #10152c;
+
+  --ok: #7fd1a3;
+  --ok-wash: rgba(127, 209, 163, 0.12);
+  --warn: #efc06b;
+  --warn-wash: rgba(239, 192, 107, 0.12);
+  --crit: #f09a8e;
+  --crit-wash: rgba(240, 154, 142, 0.12);
+
+  --l1: var(--ok);
+  --l1-wash: var(--ok-wash);
+  --l2: #a9b4f5;
+  --l2-wash: rgba(142, 156, 240, 0.13);
+  --l3: #e6c27f;
+  --l3-wash: rgba(217, 173, 94, 0.12);
+  --l4: #e5a3c6;
+  --l4-wash: rgba(229, 163, 198, 0.12);
+  --l5: #b4b3bf;
+  --l5-wash: rgba(180, 179, 191, 0.12);
+
+  --lift-1: 0 0 0 1px rgba(236, 230, 216, 0.07), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --lift-2: 0 0 0 1px rgba(236, 230, 216, 0.08), 0 10px 28px -10px rgba(0, 0, 0, 0.6);
+  --lift-3: 0 0 0 1px rgba(236, 230, 216, 0.09), 0 28px 56px -18px rgba(0, 0, 0, 0.75);
+  --focus-ring: 0 0 0 3px rgba(217, 173, 94, 0.5);
+
+  --grad-vat: linear-gradient(158deg, #222f72 0%, #182258 34%, #10163a 70%, #0a0e1e 100%);
+  --grad-vat-glow: radial-gradient(120% 90% at 82% 8%, rgba(217, 173, 94, 0.2) 0%, rgba(217, 173, 94, 0) 46%),
+    radial-gradient(90% 70% at 0% 100%, rgba(62, 79, 163, 0.45) 0%, rgba(62, 79, 163, 0) 60%);
+  --grad-dip: linear-gradient(180deg, rgba(142, 156, 240, 0.1) 0%, rgba(142, 156, 240, 0.035) 46%, rgba(142, 156, 240, 0) 100%);
+  --grad-brand: linear-gradient(180deg, #a3b0f6 0%, #8e9cf0 55%, #7887e6 100%);
+  --grad-brand-hover: linear-gradient(180deg, #b2bdf8 0%, #9ba8f3 55%, #8594ea 100%);
+  --grad-bronze: linear-gradient(135deg, #f0d395 0%, #dcb064 36%, #c08a32 70%, #946414 100%);
+  --grad-bronze-soft: linear-gradient(135deg, rgba(217, 173, 94, 0.14) 0%, rgba(217, 173, 94, 0.06) 100%);
+  --grad-surface: linear-gradient(180deg, #181e37 0%, #151a30 100%);
+  --grad-meter: linear-gradient(90deg, #4e5ca8 0%, #8e9cf0 60%, #c3cbfa 100%);
+  --grad-wood: linear-gradient(180deg, #9a6233 0%, #7c4a25 55%, #5c3519 100%);
+  --sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 55%);
+}
+
+/* system preference, only when the person has not chosen */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    color-scheme: dark;
+    --ground: #0e1222;
+    --ground-2: #121730;
+    --surface: #161b32;
+    --surface-2: #1b2140;
+    --sunk: #0b0f1d;
+    --ink: #ece6d8;
+    --ink-2: #c3c0cd;
+    --ink-3: #9b9aae;
+    --ink-inverse: var(--indigo-900);
+    --line: rgba(236, 230, 216, 0.09);
+    --line-mid: rgba(236, 230, 216, 0.16);
+    --line-strong: rgba(236, 230, 216, 0.34);
+    --brand: #8e9cf0;
+    --brand-ink: #a9b4f5;
+    --brand-wash: rgba(142, 156, 240, 0.12);
+    --brand-wash-2: rgba(142, 156, 240, 0.2);
+    --on-brand: #0a0e1e;
+    --accent: #d9ad5e;
+    --accent-ink: #e6c27f;
+    --accent-wash: rgba(217, 173, 94, 0.1);
+    --accent-wash-2: rgba(217, 173, 94, 0.18);
+    --on-accent: #10152c;
+    --ok: #7fd1a3;
+    --ok-wash: rgba(127, 209, 163, 0.12);
+    --warn: #efc06b;
+    --warn-wash: rgba(239, 192, 107, 0.12);
+    --crit: #f09a8e;
+    --crit-wash: rgba(240, 154, 142, 0.12);
+    --l1: var(--ok);
+    --l1-wash: var(--ok-wash);
+    --l2: #a9b4f5;
+    --l2-wash: rgba(142, 156, 240, 0.13);
+    --l3: #e6c27f;
+    --l3-wash: rgba(217, 173, 94, 0.12);
+    --l4: #e5a3c6;
+    --l4-wash: rgba(229, 163, 198, 0.12);
+    --l5: #b4b3bf;
+    --l5-wash: rgba(180, 179, 191, 0.12);
+    --lift-1: 0 0 0 1px rgba(236, 230, 216, 0.07), 0 1px 2px rgba(0, 0, 0, 0.3);
+    --lift-2: 0 0 0 1px rgba(236, 230, 216, 0.08), 0 10px 28px -10px rgba(0, 0, 0, 0.6);
+    --lift-3: 0 0 0 1px rgba(236, 230, 216, 0.09), 0 28px 56px -18px rgba(0, 0, 0, 0.75);
+    --focus-ring: 0 0 0 3px rgba(217, 173, 94, 0.5);
+    --grad-vat: linear-gradient(158deg, #222f72 0%, #182258 34%, #10163a 70%, #0a0e1e 100%);
+    --grad-vat-glow: radial-gradient(120% 90% at 82% 8%, rgba(217, 173, 94, 0.2) 0%, rgba(217, 173, 94, 0) 46%),
+      radial-gradient(90% 70% at 0% 100%, rgba(62, 79, 163, 0.45) 0%, rgba(62, 79, 163, 0) 60%);
+    --grad-dip: linear-gradient(180deg, rgba(142, 156, 240, 0.1) 0%, rgba(142, 156, 240, 0.035) 46%, rgba(142, 156, 240, 0) 100%);
+    --grad-brand: linear-gradient(180deg, #a3b0f6 0%, #8e9cf0 55%, #7887e6 100%);
+    --grad-brand-hover: linear-gradient(180deg, #b2bdf8 0%, #9ba8f3 55%, #8594ea 100%);
+    --grad-bronze: linear-gradient(135deg, #f0d395 0%, #dcb064 36%, #c08a32 70%, #946414 100%);
+    --grad-bronze-soft: linear-gradient(135deg, rgba(217, 173, 94, 0.14) 0%, rgba(217, 173, 94, 0.06) 100%);
+    --grad-surface: linear-gradient(180deg, #181e37 0%, #151a30 100%);
+    --grad-meter: linear-gradient(90deg, #4e5ca8 0%, #8e9cf0 60%, #c3cbfa 100%);
+    --grad-wood: linear-gradient(180deg, #9a6233 0%, #7c4a25 55%, #5c3519 100%);
+    --sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 55%);
+  }
+}

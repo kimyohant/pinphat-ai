@@ -65,7 +65,7 @@ export async function reviewSegment(formData: FormData) {
       const work = one<{ title: string }>("SELECT title FROM works WHERE id = ?", workId ?? 0);
       const variant = one<{ name: string }>("SELECT name FROM variants WHERE id = ?", variantId ?? 0);
       run(
-        "INSERT INTO lessons (title, grade, indicator, description, segment_id, instrument_id, notation, tempo, difficulty, base_hz, created_by, created_at) VALUES (?, 'ม.1–ม.6', ?, ?, ?, ?, ?, ?, 2, ?, ?, ?)",
+        "INSERT INTO lessons (title, grade, indicator, description, segment_id, instrument_id, notation, tempo, difficulty, base_hz, created_by, created_at) VALUES (?, 'ม.1 ถึง ม.6', ?, ?, ?, ?, ?, ?, 2, ?, ?, ?)",
         `${work?.title ?? "เพลงจากคลัง"}${variant ? ` · ${variant.name}` : ""}`,
         str("indicator") || "ศ 2.2",
         "บทเรียนที่สร้างจากการบรรเลงที่ผ่านการรับรองแล้ว",

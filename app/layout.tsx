@@ -1,58 +1,60 @@
-import type { Metadata } from "next";
-import Link from "next/link";
-import { IBM_Plex_Mono, IBM_Plex_Sans_Thai_Looped, Noto_Sans_Lao, Noto_Serif_Thai } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { IBM_Plex_Mono, Noto_Sans_Lao, Noto_Serif_Lao, Sarabun, Trirong } from "next/font/google";
 import { getUser } from "@/lib/auth";
-import { ROLE_LABEL } from "@/lib/access";
-import { NavLinks } from "@/components/NavLinks";
+import { DICTS } from "@/lib/i18n";
+import { I18nProvider } from "@/lib/i18n/client";
+import { getLocale, getTheme } from "@/lib/i18n/server";
+import { MobileHeader, Sidebar, TabBar } from "@/components/shell/Nav";
 import { logout } from "./login/actions";
-import "./globals.css";
+import "./design.css";
 
-const body = IBM_Plex_Sans_Thai_Looped({ subsets: ["thai", "latin"], weight: ["300", "400", "500", "600"], variable: "--f-body" });
-const display = Noto_Serif_Thai({ subsets: ["thai", "latin"], weight: ["500", "700"], variable: "--f-display" });
-const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--f-mono" });
-const lao = Noto_Sans_Lao({ subsets: ["lao"], weight: ["500"], variable: "--f-lao" });
+// Trirong กับ Sarabun มีทั้งอักษรไทยและละติน ลาวใช้ Noto ที่มีอักษรลาวครบ เบราว์เซอร์เลือกตามตัวอักษรเอง
+const display = Trirong({ subsets: ["thai", "latin"], weight: ["500", "600", "700"], variable: "--f-display", display: "swap" });
+const sans = Sarabun({ subsets: ["thai", "latin"], weight: ["400", "500", "600", "700"], variable: "--f-sans", display: "swap" });
+const laoSans = Noto_Sans_Lao({ subsets: ["lao"], weight: ["400", "500", "600", "700"], variable: "--f-lao-sans", display: "swap", preload: false });
+const laoSerif = Noto_Serif_Lao({ subsets: ["lao"], weight: ["500", "600", "700"], variable: "--f-lao-serif", display: "swap", preload: false });
+const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--f-mono", display: "swap", preload: false });
 
-export const metadata: Metadata = {
-  title: "Pinphat AI",
-  description: "แพลตฟอร์มปัญญาประดิษฐ์เพื่อการอนุรักษ์ ถ่ายทอด และส่งเสริมการเรียนรู้ดนตรีพิณพาทย์ล้านช้าง",
+export async function generateMetadata(): Promise<Metadata> {
+  const t = DICTS[await getLocale()];
+  return { title: t.meta.title, description: t.meta.description };
+}
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f3efe6" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e1222" },
+  ],
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const user = await getUser();
+  const [user, locale, theme] = await Promise.all([getUser(), getLocale(), getTheme()]);
+  const t = DICTS[locale];
+  const shellUser = { id: user.id, name: user.name, role: user.role };
   return (
-    <html lang="th" className={`${body.variable} ${display.variable} ${mono.variable} ${lao.variable}`}>
+    <html
+      lang={locale}
+      data-theme={theme === "system" ? undefined : theme}
+      className={`${display.variable} ${sans.variable} ${laoSans.variable} ${laoSerif.variable} ${mono.variable}`}
+      suppressHydrationWarning
+    >
       <body>
-        <header className="topbar">
-          <div className="topbar-inner">
-            <Link href="/" className="brand">
-              <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true">
-                {Array.from({ length: 8 }, (_, i) => {
-                  const a = ((140 + (i * 260) / 7) * Math.PI) / 180;
-                  return <circle key={i} cx={15 + 11 * Math.cos(a)} cy={15 + 11 * Math.sin(a)} r={3.2} fill={i < 5 ? "var(--bronze)" : "var(--line)"} />;
-                })}
-              </svg>
-              <span>
-                <b>Pinphat AI</b>
-                <small className="lao">ພິນພາດລ້ານຊ້າງ</small>
-              </span>
-            </Link>
-            <NavLinks role={user.role} />
-            <div className="who">
-              {user.id ? (
-                <>
-                  <span>{user.name}</span>
-                  <span className="role">{ROLE_LABEL[user.role]}</span>
-                  <form action={logout}>
-                    <button className="btn ghost sm" type="submit">ออกจากระบบ</button>
-                  </form>
-                </>
-              ) : (
-                <Link className="btn sm" href="/login">เข้าสู่ระบบ</Link>
-              )}
+        <I18nProvider locale={locale}>
+          <a className="skip" href="#main">
+            {t.shell.skip}
+          </a>
+          <div className="app">
+            <Sidebar user={shellUser} signOut={logout} />
+            <div className="app-main">
+              <MobileHeader />
+              {children}
             </div>
           </div>
-        </header>
-        {children}
+          <TabBar user={shellUser} signOut={logout} />
+        </I18nProvider>
       </body>
     </html>
   );

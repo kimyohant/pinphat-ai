@@ -3,15 +3,16 @@ import { requireRole } from "@/lib/auth";
 import { all } from "@/lib/db";
 import { SESSION_SQL, type SessionRow } from "@/lib/field";
 import { AccessBadge } from "@/components/AccessBadge";
-import { thDate } from "@/lib/format";
+import { getT } from "@/lib/i18n/server";
+import { fmtDate } from "@/lib/i18n/config";
+import { Icon } from "@/components/ui/Icon";
 
-const STATUS: Record<string, [string, string]> = {
-  draft: ["ร่าง", "warn"],
-  submitted: ["ส่งตรวจแล้ว", "ok"],
-};
 
 export default async function FieldPage() {
   const user = await requireRole("collector", "curator");
+  const { t, locale } = await getT();
+  const thDate = (d: string | null | undefined) => fmtDate(d, locale);
+  const STATUS: Record<string, [string, string]> = { draft: [t.field.draft, "warn"], submitted: [t.field.submitted, "ok"] };
   const sessions = all<SessionRow & { assets: number; pending: number }>(
     `SELECT * FROM (${SESSION_SQL}) x
      LEFT JOIN (SELECT session_id, COUNT(*) AS assets FROM assets GROUP BY session_id) a ON a.session_id = x.id
@@ -21,29 +22,30 @@ export default async function FieldPage() {
     ...(user.role === "collector" ? [user.id] : []),
   );
   return (
-    <main className="page">
+    <main id="main" className="page">
       <div className="row between">
         <div className="page-head">
-          <div className="eyebrow">Field Studio</div>
-          <h1>รอบบันทึกภาคสนาม</h1>
-          <p>ทุกรอบต้องมีความยินยอมก่อนอัปโหลดไฟล์ ไฟล์ต้นฉบับถูกเก็บพร้อมค่า SHA-256 และส่งให้ AI วิเคราะห์เบื้องต้น</p>
+          <span className="eyebrow">{t.field.eyebrow}</span>
+          <h1>{t.field.title}</h1>
+          <p>{t.field.lede}</p>
         </div>
         <Link className="btn" href="/field/new">
-          + เริ่มรอบบันทึกใหม่
+          <Icon name="field" size={18} />
+          {t.field.newSession}
         </Link>
       </div>
       <div className="tbl">
         <table>
           <thead>
             <tr>
-              <th>รหัส</th>
-              <th>รอบบันทึก</th>
-              <th>ผู้ให้ข้อมูล</th>
-              <th>พื้นที่</th>
-              <th>ความยินยอม</th>
-              <th className="num">ไฟล์</th>
-              <th className="num">รอตรวจ</th>
-              <th>สถานะ</th>
+              <th>{t.field.colCode}</th>
+              <th>{t.field.colSession}</th>
+              <th>{t.field.colPerson}</th>
+              <th>{t.field.colPlace}</th>
+              <th>{t.field.colConsent}</th>
+              <th className="num">{t.field.colFiles}</th>
+              <th className="num">{t.field.colPending}</th>
+              <th>{t.field.colStatus}</th>
             </tr>
           </thead>
           <tbody>
@@ -71,7 +73,7 @@ export default async function FieldPage() {
           </tbody>
         </table>
       </div>
-      {sessions.length === 0 && <div className="empty">ยังไม่มีรอบบันทึก เริ่มรอบแรกได้จากปุ่มด้านบน</div>}
+      {sessions.length === 0 && <div className="empty">{t.field.empty}</div>}
     </main>
   );
 }

@@ -2,7 +2,7 @@ type P = { id: number; display_name: string; province: string | null };
 type E = { teacher_id: number; student_id: number; note: string | null };
 
 /** ผังสายการสืบทอดครู → ศิษย์ จัดชั้นตามรุ่น */
-export function LineageGraph({ persons, edges }: { persons: P[]; edges: E[] }) {
+export function LineageGraph({ persons, edges, label = "ผังสายการสืบทอด" }: { persons: P[]; edges: E[]; label?: string }) {
   const gen = new Map<number, number>();
   const parents = new Map<number, number[]>();
   edges.forEach((e) => parents.set(e.student_id, [...(parents.get(e.student_id) ?? []), e.teacher_id]));
@@ -25,7 +25,7 @@ export function LineageGraph({ persons, edges }: { persons: P[]; edges: E[] }) {
   const H = levels.length * rowH + 10;
   return (
     <div style={{ overflowX: "auto" }}>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: 620, display: "block" }} role="img" aria-label="ผังสายการสืบทอด">
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: 620, display: "block" }} role="img" aria-label={label}>
         {edges.map((e, i) => {
           const a = pos.get(e.teacher_id);
           const b = pos.get(e.student_id);
@@ -36,7 +36,7 @@ export function LineageGraph({ persons, edges }: { persons: P[]; edges: E[] }) {
           const c = pos.get(p.id)!;
           return (
             <g key={p.id}>
-              <rect x={c.x - boxW / 2} y={c.y - 22} width={boxW} height={44} rx="8" fill="var(--surface)" stroke="var(--indigo)" />
+              <rect x={c.x - boxW / 2} y={c.y - 22} width={boxW} height={44} rx="10" fill="var(--surface)" stroke="var(--brand)" strokeOpacity="0.5" />
               <text x={c.x} y={c.y - 3} textAnchor="middle" fontSize="12.5" fill="var(--ink)" fontWeight="600">
                 {p.display_name.replace(" (นามสมมติ)", "")}
               </text>

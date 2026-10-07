@@ -5,6 +5,9 @@ import { DEFAULT_BASE_HZ, NOTES, freqToNote, noteFreq, noteLabel, parseNotation,
 import { detectPitch } from "@/lib/pitch";
 import { ching, ranat } from "@/lib/synth-client";
 import { NotationGrid } from "./NotationGrid";
+import { useT } from "@/lib/i18n/client";
+import { fmt } from "@/lib/i18n/config";
+import { Icon } from "@/components/ui/Icon";
 
 type Lesson = { id: number; title: string; notation: string; tempo: number; base_hz: number | null };
 type Hit = { t: number; note: NoteName | null; octave: number };
@@ -26,6 +29,7 @@ const KEYS: { note: NoteName; octave: number; key: string; alt: string }[] = [
 ];
 
 export function PracticeCoach({ lesson, canSave }: { lesson: Lesson; canSave: boolean }) {
+  const { t: T } = useT();
   const slots = useMemo(() => parseNotation(lesson.notation), [lesson.notation]);
   const [speed, setSpeed] = useState(0.75);
   const [mode, setMode] = useState<"keys" | "mic">("keys");
@@ -156,10 +160,10 @@ export function PracticeCoach({ lesson, canSave }: { lesson: Lesson; canSave: bo
     try {
       await ensureMic();
     } catch {
-      setStatus("เปิดไมค์ไม่ได้ ตรวจสอบการอนุญาตไมค์ในเบราว์เซอร์");
+      setStatus(T.coach.micDenied);
       return;
     }
-    setStatus("ตีลูก ด หนึ่งครั้ง…");
+    setStatus(T.coach.strikeDo);
     const c = ctx();
     const until = c.currentTime + 4;
     let done = false;
@@ -168,12 +172,12 @@ export function PracticeCoach({ lesson, canSave }: { lesson: Lesson; canSave: bo
         if (f > 0 && !done) {
           done = true;
           setBase(Math.round(f * 10) / 10);
-          setStatus(`ตั้ง ด = ${f.toFixed(1)} Hz แล้ว`);
+          setStatus(fmt(T.coach.doSet, { hz: f.toFixed(1) }));
         }
       },
       () => done || c.currentTime > until,
     );
-    setTimeout(() => !done && setStatus("ไม่ได้ยินเสียง ลองตีให้ดังขึ้นหรือขยับไมค์ใกล้เครื่อง"), 4100);
+    setTimeout(() => !done && setStatus(T.coach.noSound), 4100);
   }
 
   // ---------- ฝึก ----------
@@ -184,7 +188,7 @@ export function PracticeCoach({ lesson, canSave }: { lesson: Lesson; canSave: bo
       try {
         await ensureMic();
       } catch {
-        setStatus("เปิดไมค์ไม่ได้ ใช้โหมดระนาดบนจอแทน หรืออนุญาตไมค์ในเบราว์เซอร์");
+        setStatus(T.coach.micFallback);
         return;
       }
     }
@@ -284,11 +288,11 @@ export function PracticeCoach({ lesson, canSave }: { lesson: Lesson; canSave: bo
     const accuracy = expected ? hits / expected : 0;
     const bars = [...errorBars].sort((a, b) => a - b);
     const tips: string[] = [];
-    if (!ev.length) tips.push(mode === "mic" ? "ไม่ได้ยินเสียงจากไมค์เลย ลองขยับไมค์ใกล้เครื่องดนตรี หรือตีให้ดังขึ้น" : "ยังไม่ได้ตีเลย กดแป้น 1–8 หรือแตะลูกระนาดบนจอตามโน้ตที่ไฮไลต์");
-    else if (accuracy >= 0.9) tips.push(speed < 1 ? "แม่นมาก ลองเพิ่มความเร็วเป็น 1× ได้แล้ว" : "แม่นมาก ผ่านบทเรียนนี้แล้ว");
-    if (bars.length && ev.length) tips.push(`ห้องที่ควรฝึกซ้ำ: ${bars.map((b) => b + 1).join(", ")} ลองฟังตัวอย่างห้องนั้นช้า ๆ แล้วนับ 1-2-3-4 ให้เสียงที่ 4 ลงพร้อมฉับ`);
-    if (timingMs > 80) tips.push(`จังหวะคลาดเฉลี่ย ${timingMs} ms ลองชะลอความเร็วและฟังเสียงฉิ่งเป็นหลัก`);
-    if (extras > 2) tips.push(`มีเสียงที่ตีเกินมา ${extras} ครั้ง`);
+    if (!ev.length) tips.push(mode === "mic" ? T.coach.tipNoMic : T.coach.tipNoTap);
+    else if (accuracy >= 0.9) tips.push(speed < 1 ? T.coach.tipFaster : T.coach.tipPassed);
+    if (bars.length && ev.length) tips.push(fmt(T.coach.tipBars, { bars: bars.map((b) => b + 1).join(", ") }));
+    if (timingMs > 80) tips.push(fmt(T.coach.tipTiming, { ms: timingMs }));
+    if (extras > 2) tips.push(fmt(T.coach.tipExtras, { n: extras }));
     const r: Result = { accuracy, timingMs, expected, hits, extras, errorBars: bars, slotState, tips };
     setResult(r);
     if (canSave && ev.length) {
@@ -296,7 +300,7 @@ export function PracticeCoach({ lesson, canSave }: { lesson: Lesson; canSave: bo
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ lessonId: lesson.id, mode, speed, accuracy, timingMs, barErrors: bars }),
-      }).then((res) => setStatus(res.ok ? "บันทึกผลการฝึกแล้ว ครูจะเห็นในแดชบอร์ดห้องเรียน" : "บันทึกผลไม่สำเร็จ"));
+      }).then((res) => setStatus(res.ok ? T.coach.saved : T.coach.saveFailed));
     }
   }
 
@@ -308,31 +312,33 @@ export function PracticeCoach({ lesson, canSave }: { lesson: Lesson; canSave: bo
         <div className="row between">
           <div className="row">
             <button className="btn alt" onClick={listen} disabled={busy}>
-              ▶ ฟังตัวอย่าง
+              <Icon name="play" size={16} />
+              {T.coach.listen}
             </button>
             <button className="btn" onClick={practice} disabled={busy}>
-              ● เริ่มฝึก
+              <Icon name="learn" size={16} />
+              {T.coach.start}
             </button>
             {busy && (
               <button className="btn ghost" onClick={stopAll}>
-                หยุด
+                {T.coach.stop}
               </button>
             )}
           </div>
           <div className="row small">
             <label className="check" style={{ alignItems: "center" }}>
-              <input type="checkbox" checked={withChing} onChange={(e) => setWithChing(e.target.checked)} /> เสียงฉิ่งนำจังหวะ
+              <input type="checkbox" checked={withChing} onChange={(e) => setWithChing(e.target.checked)} /> {T.coach.ching}
             </label>
-            <select aria-label="ความเร็ว" value={speed} onChange={(e) => setSpeed(Number(e.target.value))} disabled={busy} style={{ width: "auto" }}>
-              <option value={0.5}>ความเร็ว 0.5×</option>
-              <option value={0.75}>ความเร็ว 0.75×</option>
-              <option value={1}>ความเร็ว 1×</option>
+            <select aria-label={T.coach.speed} value={speed} onChange={(e) => setSpeed(Number(e.target.value))} disabled={busy} style={{ width: "auto" }}>
+              <option value={0.5}>{fmt(T.coach.speedN, { n: 0.5 })}</option>
+              <option value={0.75}>{fmt(T.coach.speedN, { n: 0.75 })}</option>
+              <option value={1}>{fmt(T.coach.speedN, { n: 1 })}</option>
             </select>
           </div>
         </div>
         <div className="row small muted">
           <span>
-            {phase === "countin" ? "นับเข้า… 1 2 3 4" : phase === "rec" ? "กำลังฟังการบรรเลงของคุณ" : phase === "demo" ? "กำลังเล่นตัวอย่าง" : `${expected} โน้ต · ${slots.length} ช่อง · ช่องละ ${Math.round(slotSec * 1000)} ms`}
+            {phase === "countin" ? T.coach.countin : phase === "rec" ? T.coach.listening : phase === "demo" ? T.coach.demo : fmt(T.coach.summary, { notes: expected, slots: slots.length, ms: Math.round(slotSec * 1000) })}
           </span>
         </div>
         <NotationGrid slots={slots} current={current} errorBars={result?.errorBars} slotState={result?.slotState} />
@@ -341,19 +347,19 @@ export function PracticeCoach({ lesson, canSave }: { lesson: Lesson; canSave: bo
       <div className="grid cols-2">
         <div className="card stack">
           <div className="row between">
-            <h3>วิธีบรรเลง</h3>
+            <h3>{T.coach.how}</h3>
             <div className="row">
               <button className={`btn sm ${mode === "keys" ? "" : "ghost"}`} onClick={() => setMode("keys")} disabled={busy}>
-                ระนาดบนจอ
+                {T.coach.onScreen}
               </button>
               <button className={`btn sm ${mode === "mic" ? "" : "ghost"}`} onClick={() => setMode("mic")} disabled={busy}>
-                เครื่องจริง (ไมค์)
+                {T.coach.realMic}
               </button>
             </div>
           </div>
           {mode === "keys" ? (
             <>
-              <div className="ranat" role="group" aria-label="ระนาดบนจอ">
+              <div className="ranat" role="group" aria-label={T.coach.onScreen}>
                 {KEYS.map((k, i) => (
                   <button
                     key={i}
@@ -363,7 +369,7 @@ export function PracticeCoach({ lesson, canSave }: { lesson: Lesson; canSave: bo
                       e.preventDefault();
                       strikeKey(i);
                     }}
-                    aria-label={`ลูก ${noteLabel(k.note, k.octave)}`}
+                    aria-label={fmt(T.coach.keyLabel, { note: noteLabel(k.note, k.octave) })}
                   >
                     <span>
                       {noteLabel(k.note, k.octave)}
@@ -372,41 +378,41 @@ export function PracticeCoach({ lesson, canSave }: { lesson: Lesson; canSave: bo
                   </button>
                 ))}
               </div>
-              <p className="xs muted">แตะลูกระนาด หรือกดแป้น 1–8 (หรือ A S D F G H J K) ตามโน้ตที่ไฮไลต์</p>
+              <p className="xs muted">{T.coach.tapHint}</p>
             </>
           ) : (
             <div className="stack small">
-              <p>วางมือถือหรือคอมพิวเตอร์ห่างจากเครื่องราว 1 เมตร ระบบวิเคราะห์เสียงในเครื่องของคุณ ไม่ส่งเสียงขึ้นเซิร์ฟเวอร์</p>
+              <p>{T.coach.micPrivacy}</p>
               <div className="row">
                 <button className="btn ghost sm" onClick={calibrate} disabled={busy}>
-                  ตั้งเสียง ด จากเครื่องของฉัน
+                  {T.coach.calibrate}
                 </button>
                 <span className="mono xs">ด = {base} Hz</span>
               </div>
-              <p className="xs muted">ระนาดแต่ละวงเทียบเสียงต่างกัน ตั้งเสียง ด ก่อนเพื่อให้ระบบอ่านโน้ตได้ถูก</p>
+              <p className="xs muted">{T.coach.calibrateHint}</p>
             </div>
           )}
           {status && <div className="notice small">{status}</div>}
         </div>
 
         <div className="card stack">
-          <h3>ผลการฝึก</h3>
+          <h3>{T.coach.result}</h3>
           {result ? (
             <>
               <div className="grid cols-3">
                 <div className="stat">
                   <b style={{ color: result.accuracy >= 0.8 ? "var(--ok)" : result.accuracy >= 0.6 ? "var(--warn)" : "var(--crit)" }}>{Math.round(result.accuracy * 100)}%</b>
-                  <span>ตีโน้ตถูก</span>
+                  <span>{T.coach.correct}</span>
                 </div>
                 <div className="stat">
                   <b>±{result.timingMs}</b>
-                  <span>ms คลาดจังหวะ</span>
+                  <span>{T.coach.timing}</span>
                 </div>
                 <div className="stat">
                   <b>
                     {result.hits}/{result.expected}
                   </b>
-                  <span>โน้ต</span>
+                  <span>{T.coach.notes}</span>
                 </div>
               </div>
               <ul className="small" style={{ margin: 0, paddingLeft: "1.1em" }}>
@@ -414,14 +420,15 @@ export function PracticeCoach({ lesson, canSave }: { lesson: Lesson; canSave: bo
                   <li key={i}>{t}</li>
                 ))}
               </ul>
-              <Link className="btn ghost sm" href={`/tutor?q=${encodeURIComponent("ควรฝึกท่อนที่โน้ตติดกันอย่างไร")}`}>
-                ถามครูผู้ช่วย AI เรื่องวิธีฝึก
+              <Link className="btn ghost sm" href={`/tutor?q=${encodeURIComponent(T.coach.askTutorQ)}`}>
+                <Icon name="tutor" size={16} />
+                {T.coach.askTutor}
               </Link>
             </>
           ) : (
-            <p className="small muted">กด "เริ่มฝึก" ระบบจะนับเข้า 4 จังหวะ แล้วฟังการบรรเลงของคุณ เมื่อจบจะบอกว่าห้องไหนต้องฝึกซ้ำ</p>
+            <p className="small muted">{T.coach.idle}</p>
           )}
-          {!canSave && <p className="xs muted">เข้าสู่ระบบในบทบาทนักเรียนเพื่อบันทึกผลการฝึกให้ครูเห็น</p>}
+          {!canSave && <p className="xs muted">{T.coach.loginToSave}</p>}
         </div>
       </div>
     </div>

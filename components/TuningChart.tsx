@@ -1,7 +1,7 @@
 type Step = { note: string; hz: number; cents: number; ideal: number; dev: number };
 
 /** ค่าเพี้ยนของแต่ละเสียงเทียบกับระบบ 7 เสียงเท่า (หน่วย cents) */
-export function TuningChart({ steps, title }: { steps: Step[]; title?: string }) {
+export function TuningChart({ steps, title, axis = "cents เทียบ 7 เสียงเท่า" }: { steps: Step[]; title?: string; axis?: string }) {
   const W = 520;
   const H = 190;
   const pad = { l: 44, r: 12, t: 16, b: 34 };
@@ -30,7 +30,7 @@ export function TuningChart({ steps, title }: { steps: Step[]; title?: string })
             </text>
           </g>
         ))}
-        <text x={pad.l} y={11} fontSize="10" fill="var(--muted)">cents เทียบ 7 เสียงเท่า</text>
+        <text x={pad.l} y={11} fontSize="10" fill="var(--muted)">{axis}</text>
       </svg>
     </div>
   );

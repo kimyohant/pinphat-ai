@@ -1,14 +1,18 @@
 import { requireRole } from "@/lib/auth";
 import { all } from "@/lib/db";
 import { LEVELS, TK_LABELS } from "@/lib/access";
-import { json, thDate } from "@/lib/format";
+import { getT } from "@/lib/i18n/server";
+import { fmt, fmtDate, fmtDateTime } from "@/lib/i18n/config";
+import { json } from "@/lib/format";
 import { AccessBadge } from "@/components/AccessBadge";
 import { changeLevel, revokeConsent } from "./actions";
 
-const METHOD: Record<string, string> = { signature: "ลายมือชื่อ", voice: "บันทึกเสียง", witness: "มีพยาน" };
 
 export default async function ConsentPage() {
   await requireRole("collector", "curator", "community");
+  const { t, locale } = await getT();
+  const thDate = (d: string | null | undefined) => fmtDate(d, locale);
+  const METHOD: Record<string, string> = { signature: t.consent.methodSignature, voice: t.consent.methodVoice, witness: t.consent.methodWitness };
   const consents = all<{
     id: number;
     person: string;
@@ -31,11 +35,11 @@ export default async function ConsentPage() {
   );
 
   return (
-    <main className="page">
+    <main id="main" className="page">
       <div className="page-head">
-        <div className="eyebrow">ธรรมาภิบาลข้อมูล</div>
-        <h1>ทะเบียนความยินยอม</h1>
-        <p>ครูภูมิปัญญาและชุมชนเปลี่ยนระดับการเข้าถึงหรือถอนความยินยอมได้ทุกเมื่อ เมื่อถอนแล้ว ความรู้ชุดนั้นจะถูกลบออกจากดัชนีของครูผู้ช่วย AI ทันที และไฟล์จะเปิดฟังไม่ได้</p>
+        <span className="eyebrow">{t.consent.eyebrow}</span>
+        <h1>{t.consent.title}</h1>
+        <p>{t.consent.lede}</p>
       </div>
       <div className="stack">
         {consents.map((c) => (
@@ -47,46 +51,46 @@ export default async function ConsentPage() {
                 <AccessBadge level={c.access_level} revoked={!!c.revoked_at} />
               </div>
               <span className="xs muted">
-                {METHOD[c.method] ?? c.method} · {thDate(c.granted_at)} · บันทึกโดย {c.recorder}
+                {METHOD[c.method] ?? c.method} · {thDate(c.granted_at)} · {fmt(t.consent.recordedBy, { name: c.recorder ?? "-" })}
               </span>
             </div>
             <p className="small">{c.scope_note}</p>
             <div className="row">
               {json<string[]>(c.tk_labels, []).map((l) => (
                 <span key={l} className="badge">
-                  {l} · {TK_LABELS.find((t) => t.code === l)?.th}
+                  {l} · {(t.tk as Record<string, string>)[l]}
                 </span>
               ))}
             </div>
             <div className="row small muted">
-              <span>{c.sessions} รอบบันทึก</span>
+              <span>{fmt(t.consent.sessions, { n: c.sessions })}</span>
               <span>
-                <b style={{ color: "var(--ink)" }}>{c.chunks}</b> ชิ้นความรู้ในดัชนี AI
+                <b style={{ color: "var(--ink)" }}>{c.chunks}</b> {t.consent.chunks}
               </span>
-              {c.revoked_at && <span style={{ color: "var(--crit)" }}>ถอนเมื่อ {thDate(c.revoked_at)}</span>}
+              {c.revoked_at && <span style={{ color: "var(--crit)" }}>{fmt(t.consent.revokedOn, { date: thDate(c.revoked_at) })}</span>}
             </div>
             {!c.revoked_at && (
               <div className="row between" style={{ borderTop: "1px solid var(--line)", paddingTop: 10 }}>
                 <form action={changeLevel} className="row">
                   <input type="hidden" name="consentId" value={c.id} />
-                  <select name="level" defaultValue={c.access_level} aria-label="ระดับการเข้าถึง" style={{ width: "auto" }}>
+                  <select name="level" defaultValue={c.access_level} aria-label={t.consent.levelLabel} style={{ width: "auto" }}>
                     {LEVELS.map((l) => (
                       <option key={l.level} value={l.level}>
-                        {l.short} · {l.name}
+                        {l.short} · {t.levels[l.level]}
                       </option>
                     ))}
                   </select>
                   <button className="btn ghost sm" type="submit">
-                    เปลี่ยนระดับ
+                    {t.consent.changeLevel}
                   </button>
                 </form>
                 <form action={revokeConsent} className="row">
                   <input type="hidden" name="consentId" value={c.id} />
                   <label className="check small">
-                    <input type="checkbox" name="confirm" value="yes" required /> ยืนยันตามคำขอของผู้ให้ข้อมูล
+                    <input type="checkbox" name="confirm" value="yes" required /> {t.consent.confirm}
                   </label>
                   <button className="btn danger sm" type="submit">
-                    ถอนความยินยอม
+                    {t.consent.revoke}
                   </button>
                 </form>
               </div>
@@ -96,23 +100,23 @@ export default async function ConsentPage() {
       </div>
 
       <section className="stack">
-        <h2>บันทึกการเข้าถึงและการเปลี่ยนแปลง</h2>
+        <h2>{t.consent.log}</h2>
         <div className="tbl">
           <table>
             <thead>
               <tr>
-                <th>เวลา</th>
-                <th>ผู้ดำเนินการ</th>
-                <th>การกระทำ</th>
-                <th>เป้าหมาย</th>
-                <th>รายละเอียด</th>
+                <th>{t.consent.colTime}</th>
+                <th>{t.consent.colActor}</th>
+                <th>{t.consent.colAction}</th>
+                <th>{t.consent.colTarget}</th>
+                <th>{t.consent.colDetail}</th>
               </tr>
             </thead>
             <tbody>
               {log.map((l) => (
                 <tr key={l.id}>
-                  <td className="xs mono">{new Date(l.at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}</td>
-                  <td>{l.name ?? "ระบบ"}</td>
+                  <td className="xs mono">{fmtDateTime(l.at, locale)}</td>
+                  <td>{l.name ?? t.consent.system}</td>
                   <td className="mono xs">{l.action}</td>
                   <td className="mono xs">{l.target}</td>
                   <td className="small">{l.detail}</td>
