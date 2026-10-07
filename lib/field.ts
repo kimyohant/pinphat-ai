@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 import { MEDIA_DIR, all, now, one, run } from "./db";
 import { analyzeWav } from "./audio";
 import { STT_MODEL, transcribe, unslothEnabled } from "./unsloth";
+import { createTask } from "./tasks";
 
 export type SessionRow = {
   id: number;
@@ -114,8 +115,14 @@ export function ingest(opts: {
       isInterview ? null : (analysis?.confidence ?? null),
       now(),
     ).id;
+    if (!isInterview) {
+      // ร่างโน้ตจาก AI เก็บไว้เทียบกับฉบับที่ผู้เชี่ยวชาญรับรอง
+      if (analysis?.notation) run("UPDATE segments SET ai_draft = ? WHERE id = ?", analysis.notation, segmentId);
+      createTask({ type: "review_notation", subject: `segment:${segmentId}`, title: `${sessionCode(segmentId)} #${segmentId}`, role: "curator" });
+    }
     if (isInterview) {
       const started = startTranscription(segmentId, opts.language);
+      if (!started) transcriptTask(segmentId);
       return { assetId: asset.id, segmentId, sha256: f.sha, analysis: null, note: started ? "AI กำลังถอดความบทสัมภาษณ์ ร่างจะเข้าคิวให้ผู้เชี่ยวชาญตรวจแก้" : "ยังไม่ได้ตั้งค่าเซิร์ฟเวอร์ถอดเสียง ส่งเข้าคิวให้ถอดความเองแล้ว" };
     }
     note = analysis
@@ -146,6 +153,19 @@ export function asrState(aiSuggestion: string | null, segmentId: number): AsrSta
   }
 }
 
+function sessionCode(segmentId: number): string {
+  return one<{ code: string }>("SELECT s.code FROM segments sg JOIN sessions s ON s.id = sg.session_id WHERE sg.id = ?", segmentId)?.code ?? "";
+}
+
+/** งานแก้คำถอดความ: ข้อมูลระดับชุมชนเท่านั้นหรือระดับปิดส่งให้ผู้เชี่ยวชาญ ที่เหลือส่งให้ผู้ช่วยวิจัย */
+function transcriptTask(segmentId: number, note = "") {
+  const r = one<{ access_level: number | null }>(
+    "SELECT c.access_level FROM segments sg JOIN sessions s ON s.id = sg.session_id LEFT JOIN consents c ON c.id = s.consent_id WHERE sg.id = ?",
+    segmentId,
+  );
+  createTask({ type: "review_transcript", subject: `segment:${segmentId}`, title: `${sessionCode(segmentId)} #${segmentId}${note}`, role: (r?.access_level ?? 5) >= 4 ? "curator" : "assistant" });
+}
+
 /** ถอดความไฟล์เสียงของส่วนย่อยแบบเบื้องหลัง ผลเป็นร่างที่ต้องผ่านผู้เชี่ยวชาญก่อนเข้าคลังความรู้ */
 export function startTranscription(segmentId: number, language = "th"): boolean {
   if (!unslothEnabled() || asrActive.has(segmentId)) return false;
@@ -163,10 +183,12 @@ export function startTranscription(segmentId: number, language = "th"): boolean 
     try {
       const buf = fs.readFileSync(path.join(/*turbopackIgnore: true*/ MEDIA_DIR, a.path));
       const r = await transcribe(buf, a.filename, a.mime, language);
-      run("UPDATE segments SET transcript = ? WHERE id = ? AND status = 'pending'", r.text, segmentId);
+      run("UPDATE segments SET transcript = ?, ai_draft = ? WHERE id = ? AND status = 'pending'", r.text, r.text, segmentId);
+      transcriptTask(segmentId);
       set({ status: "done", model: STT_MODEL, language: r.language ?? lang, seconds: Math.round((Date.now() - t0) / 1000), at: now() });
     } catch (e) {
       set({ status: "failed", model: STT_MODEL, language: lang, error: e instanceof Error ? e.message : String(e), at: now() });
+      transcriptTask(segmentId, " · ASR ✗");
     } finally {
       asrActive.delete(segmentId);
     }

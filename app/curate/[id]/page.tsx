@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { all, one } from "@/lib/db";
 import { getT } from "@/lib/i18n/server";
-import { fmt } from "@/lib/i18n/config";
+import { fmt, fmtDate } from "@/lib/i18n/config";
 import { Icon } from "@/components/ui/Icon";
 import { parseNotation } from "@/lib/notation";
 import { json, pct } from "@/lib/format";
@@ -14,7 +14,7 @@ import { AccessBadge } from "@/components/AccessBadge";
 import { NotationGrid } from "@/components/NotationGrid";
 import { TuningChart } from "@/components/TuningChart";
 import { Waveform } from "@/components/Waveform";
-import { reviewSegment } from "../actions";
+import { reviewSegment, saveDraft } from "../actions";
 
 type Seg = {
   id: number;
@@ -39,22 +39,28 @@ type Seg = {
   scope_note: string | null;
   asset_analysis: string | null;
   track_label: string | null;
+  ai_draft: string | null;
+  edited_at: string | null;
+  editor: string | null;
 };
 
-export default async function ReviewPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string }> }) {
-  await requireRole("curator");
-  const { t } = await getT();
+export default async function ReviewPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; saved?: string }> }) {
+  const user = await requireRole("curator", "assistant");
+  const isAssistant = user.role === "assistant";
+  const { t, locale } = await getT();
   const CONTENT_TYPES = t.contentTypes as Record<string, string>;
   const { id } = await params;
-  const { error } = await searchParams;
+  const { error, saved } = await searchParams;
   const sg = one<Seg>(
     `SELECT sg.*, s.code, s.title, s.person_id, p.display_name AS person, c.access_level, c.revoked_at, c.tk_labels, c.scope_note,
-            a.analysis AS asset_analysis, a.track_label
-     FROM segments sg JOIN sessions s ON s.id = sg.session_id LEFT JOIN persons p ON p.id = s.person_id
+            a.analysis AS asset_analysis, a.track_label, u.name AS editor
+     FROM segments sg LEFT JOIN users u ON u.id = sg.edited_by JOIN sessions s ON s.id = sg.session_id LEFT JOIN persons p ON p.id = s.person_id
      LEFT JOIN consents c ON c.id = s.consent_id LEFT JOIN assets a ON a.id = sg.asset_id WHERE sg.id = ?`,
     Number(id),
   );
   if (!sg) notFound();
+  // ผู้ช่วยวิจัยไม่เห็นข้อมูลระดับชุมชนเท่านั้นหรือระดับปิด งานเหล่านี้ส่งให้ผู้เชี่ยวชาญ
+  if (isAssistant && (sg.access_level ?? 5) >= 4) redirect("/work");
   // ai_suggestion เก็บได้ทั้งผลวิเคราะห์ดนตรี (มี notes) และสถานะการถอดความบทสัมภาษณ์ (มี asr)
   const raw = json<(Analysis & { asr?: undefined }) | { asr: AsrState; notes?: undefined } | null>(sg.ai_suggestion, null);
   const ai = raw?.notes ? (raw as Analysis) : null;
@@ -70,9 +76,9 @@ export default async function ReviewPage({ params, searchParams }: { params: Pro
   return (
     <main id="main" className="page">
       <div className="page-head">
-        <Link href="/curate" className="small">
+        <Link href={isAssistant ? "/work" : "/curate"} className="small">
           <Icon name="back" size={16} />
-          {t.review.back}
+          {isAssistant ? t.draft.fromWork : t.review.back}
         </Link>
         <div className="row">
           <span className="mono muted">
@@ -87,6 +93,8 @@ export default async function ReviewPage({ params, searchParams }: { params: Pro
       </div>
       {error === "notation" && <div className="notice crit">{t.review.badNotation}</div>}
       {sg.revoked_at && <div className="notice crit">{t.review.revoked}</div>}
+      {saved && <div className="notice ok">{t.draft.saved}</div>}
+      {sg.edited_at && sg.editor && <div className="notice">{fmt(t.draft.editedBy, { name: sg.editor, date: fmtDate(sg.edited_at, locale) })}</div>}
 
       <div className="split">
         <div className="stack-lg">
@@ -150,6 +158,42 @@ export default async function ReviewPage({ params, searchParams }: { params: Pro
             </section>
           )}
 
+          {sg.ai_draft && sg.kind === "interview" && sg.ai_draft !== sg.transcript && (
+            <details className="card small">
+              <summary>{t.draft.aiDraft}</summary>
+              <p style={{ whiteSpace: "pre-wrap" }}>{sg.ai_draft}</p>
+            </details>
+          )}
+
+          {isAssistant ? (
+            <form action={saveDraft} className="card stack">
+              <input type="hidden" name="segmentId" value={sg.id} />
+              <h3>{(t.taskTypes as Record<string, string>)[sg.kind === "interview" ? "review_transcript" : "review_notation"]}</h3>
+              <p className="small muted">{t.draft.assistantLede}</p>
+              {isMusic && (
+                <label>
+                  {t.review.notation}
+                  <textarea id="notation" name="notation" className="notation" defaultValue={suggestedNotation} />
+                  <span className="hint">{t.review.notationHint}</span>
+                </label>
+              )}
+              {sg.kind === "interview" && (
+                <label>
+                  {t.review.transcript}
+                  <textarea key={sg.transcript ? "filled" : "empty"} id="transcript" name="transcript" defaultValue={sg.transcript ?? ""} style={{ minHeight: 260 }} />
+                </label>
+              )}
+              <div className="row">
+                <button className="btn ghost" type="submit" name="decision" value="save">
+                  {t.draft.save}
+                </button>
+                <button className="btn" type="submit" name="decision" value="send">
+                  <Icon name="check" size={16} />
+                  {t.draft.send}
+                </button>
+              </div>
+            </form>
+          ) : (
           <form action={reviewSegment} className="card stack">
             <input type="hidden" name="segmentId" value={sg.id} />
             <h3>{t.review.decision}</h3>
@@ -234,6 +278,7 @@ export default async function ReviewPage({ params, searchParams }: { params: Pro
               </button>
             </div>
           </form>
+          )}
         </div>
 
         <aside className="stack-lg">

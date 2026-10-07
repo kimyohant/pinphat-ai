@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { DatabaseSync as DB, SQLInputValue } from "node:sqlite";
 import { seed } from "./seed";
+import { migrate } from "./migrate";
 
 const { DatabaseSync } = process.getBuiltinModule("node:sqlite") as typeof import("node:sqlite");
 
@@ -46,6 +47,7 @@ export function db(): DB {
   if (n.n === 0) {
     seed();
   }
+  migrate(d);
   return d;
 }
 

@@ -5,6 +5,7 @@ import { retrieve } from "@/lib/kb";
 import { GpuBusyError, extractiveAnswer, llmEnabled, provider, streamAnswer, type Turn } from "@/lib/llm";
 import { UnslothError } from "@/lib/unsloth";
 import { levelName } from "@/lib/access";
+import { recordGap } from "@/lib/gaps";
 
 // ส่งกลับเป็น NDJSON: {type:"sources"} → {type:"text"}* → {type:"done"}
 export async function POST(req: Request) {
@@ -37,6 +38,8 @@ export async function POST(req: Request) {
         })),
       });
       if (!chunks.length) {
+        // เก็บเป็นช่องว่างความรู้ให้ทีมภาคสนาม (ADR-0001 ข้อ 1)
+        recordGap(question, user.role);
         send({
           type: "text",
           text: "ยังไม่มีข้อมูลเรื่องนี้ในคลังความรู้ที่คุณเข้าถึงได้ ลองถามครูดนตรีหรือครูภูมิปัญญาในชุมชน คำถามนี้จะถูกเก็บไว้ให้ทีมภาคสนามพิจารณาบันทึกเพิ่ม",

@@ -9,6 +9,7 @@ export type IconName =
   | "field"
   | "curate"
   | "consent"
+  | "work"
   | "more"
   | "sun"
   | "moon"
@@ -27,6 +28,13 @@ export type IconName =
   | "wave";
 
 const P: Record<IconName, React.ReactNode> = {
+  // ถาดงาน: กล่องรับงานของหลังบ้าน
+  work: (
+    <>
+      <path d="M5 5h14l1 8v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-5z" />
+      <path d="M4 13h4.5l1.5 2.5h4l1.5-2.5H20" />
+    </>
+  ),
   home: <path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z" />,
   // ระนาด: ลูกระนาดยาวไล่สั้นลง วางบนราง
   learn: (

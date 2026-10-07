@@ -7,13 +7,14 @@ import { indexSegment } from "@/lib/kb";
 import { parseNotation } from "@/lib/notation";
 import { json } from "@/lib/format";
 import type { Analysis } from "@/lib/audio";
+import { closeTasks, createTask, editRate } from "@/lib/tasks";
 
 export async function reviewSegment(formData: FormData) {
   const user = await requireRole("curator");
   const id = Number(formData.get("segmentId"));
   const decision = String(formData.get("decision"));
-  const sg = one<{ id: number; kind: string; session_id: number; ai_suggestion: string | null; person_id: number | null }>(
-    "SELECT sg.id, sg.kind, sg.session_id, sg.ai_suggestion, s.person_id FROM segments sg JOIN sessions s ON s.id = sg.session_id WHERE sg.id = ?",
+  const sg = one<{ id: number; kind: string; session_id: number; ai_suggestion: string | null; ai_draft: string | null; person_id: number | null }>(
+    "SELECT sg.id, sg.kind, sg.session_id, sg.ai_suggestion, sg.ai_draft, s.person_id FROM segments sg JOIN sessions s ON s.id = sg.session_id WHERE sg.id = ?",
     id,
   );
   if (!sg) redirect("/curate");
@@ -22,6 +23,7 @@ export async function reviewSegment(formData: FormData) {
   if (decision === "reject") {
     run("UPDATE segments SET status = 'rejected', review_note = ?, reviewed_by = ?, reviewed_at = ? WHERE id = ?", str("reviewNote"), user.id, now(), id);
     indexSegment(id);
+    closeTasks(`segment:${id}`);
     audit(user.id, "segment.reject", `segment:${id}`, str("reviewNote"));
     revalidatePath("/curate");
     redirect("/curate?done=rejected");
@@ -79,8 +81,13 @@ export async function reviewSegment(formData: FormData) {
       );
     }
   });
+  // วัดว่าคนต้องแก้ร่างของ AI มากแค่ไหน (ใช้ประเมิน AI และตั้งงบบุคลากร)
+  const final = sg.kind === "interview" ? str("transcript") : notation;
+  const rate = sg.ai_draft && final ? editRate(sg.ai_draft, final) : null;
+  if (rate != null) run("UPDATE segments SET edit_rate = ? WHERE id = ?", rate, id);
   const chunks = indexSegment(id);
-  audit(user.id, "segment.approve", `segment:${id}`, `indexed ${chunks} chunks`);
+  closeTasks(`segment:${id}`);
+  audit(user.id, "segment.approve", `segment:${id}`, `indexed ${chunks} chunks${rate != null ? `, edit rate ${rate}` : ""}`);
   revalidatePath("/curate");
   redirect(`/curate?done=approved&chunks=${chunks}`);
 }
@@ -88,6 +95,40 @@ export async function reviewSegment(formData: FormData) {
 export async function resolveFlag(id: number) {
   const user = await requireRole("curator");
   run("UPDATE tutor_flags SET status = 'resolved' WHERE id = ?", id);
+  closeTasks(`flag:${id}`);
   audit(user.id, "flag.resolve", `flag:${id}`);
   revalidatePath("/curate");
+}
+
+/** ผู้ช่วยวิจัยบันทึกร่างที่แก้แล้ว หรือส่งต่อให้ผู้เชี่ยวชาญรับรอง (รับรองเองไม่ได้) */
+export async function saveDraft(formData: FormData) {
+  const user = await requireRole("assistant", "curator");
+  const id = Number(formData.get("segmentId"));
+  const send = formData.get("decision") === "send";
+  const sg = one<{ status: string; code: string; access_level: number | null }>(
+    "SELECT sg.status, s.code, c.access_level FROM segments sg JOIN sessions s ON s.id = sg.session_id LEFT JOIN consents c ON c.id = s.consent_id WHERE sg.id = ?",
+    id,
+  );
+  if (!sg || (sg.status !== "pending" && sg.status !== "edited")) redirect("/work");
+  // ข้อมูลระดับชุมชนเท่านั้นและระดับปิด ผู้ช่วยวิจัยแก้ไม่ได้
+  if (user.role === "assistant" && (sg.access_level ?? 5) >= 4) redirect("/work");
+  const transcript = String(formData.get("transcript") ?? "").trim() || null;
+  const notation = String(formData.get("notation") ?? "").trim() || null;
+  run(
+    "UPDATE segments SET transcript = COALESCE(?, transcript), notation = COALESCE(?, notation), edited_by = ?, edited_at = ?, status = ? WHERE id = ?",
+    transcript,
+    notation,
+    user.id,
+    now(),
+    send ? "edited" : sg.status,
+    id,
+  );
+  if (send) {
+    closeTasks(`segment:${id}`, ["review_transcript", "review_notation"]);
+    createTask({ type: "expert_review", subject: `segment:${id}`, title: `${sg.code} #${id}`, role: "curator", createdBy: user.id });
+  }
+  audit(user.id, send ? "segment.send" : "segment.draft", `segment:${id}`);
+  revalidatePath(`/curate/${id}`);
+  revalidatePath("/work");
+  redirect(send ? "/work?done=sent" : `/curate/${id}?saved=1`);
 }

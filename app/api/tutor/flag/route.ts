@@ -1,5 +1,6 @@
 import { getUser } from "@/lib/auth";
 import { audit, now, run } from "@/lib/db";
+import { createTask } from "@/lib/tasks";
 
 export async function POST(req: Request) {
   const user = await getUser();
@@ -13,5 +14,6 @@ export async function POST(req: Request) {
     now(),
   );
   audit(user.id, "tutor.flag", `flag:${r.id}`);
+  createTask({ type: "tutor_flag", subject: `flag:${r.id}`, title: String(b.question ?? "").slice(0, 120), role: "curator", createdBy: user.id });
   return Response.json({ ok: true });
 }

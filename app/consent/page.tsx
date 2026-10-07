@@ -6,6 +6,7 @@ import { fmt, fmtDate, fmtDateTime } from "@/lib/i18n/config";
 import { json } from "@/lib/format";
 import { AccessBadge } from "@/components/AccessBadge";
 import { changeLevel, revokeConsent } from "./actions";
+import { ConsentTabs } from "@/components/ConsentTabs";
 
 
 export default async function ConsentPage() {
@@ -41,6 +42,7 @@ export default async function ConsentPage() {
         <h1>{t.consent.title}</h1>
         <p>{t.consent.lede}</p>
       </div>
+      <ConsentTabs t={t} active="registry" />
       <div className="stack">
         {consents.map((c) => (
           <div key={c.id} className="card" style={c.revoked_at ? { opacity: 0.75 } : undefined}>

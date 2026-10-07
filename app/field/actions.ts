@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { audit, now, one, run, tx } from "@/lib/db";
 import { CHECKLIST, TK_LABELS } from "@/lib/access";
+import { createTask } from "@/lib/tasks";
 import { checkFixity, getSession, nextSessionCode, saveFile, startTranscription } from "@/lib/field";
 import { json } from "@/lib/format";
 
@@ -86,7 +87,16 @@ export async function addTranscript(formData: FormData) {
   const sessionId = Number(formData.get("sessionId"));
   const text = String(formData.get("transcript") ?? "").trim();
   if (!text) return;
-  const id = run("INSERT INTO segments (session_id, kind, transcript, status, created_at) VALUES (?, 'interview', ?, 'pending', ?)", sessionId, text, now()).id;
+  // คำถอดความที่คนพิมพ์เอง ข้ามขั้นผู้ช่วยวิจัยไปให้ผู้เชี่ยวชาญรับรองเลย
+  const id = run(
+    "INSERT INTO segments (session_id, kind, transcript, status, edited_by, edited_at, created_at) VALUES (?, 'interview', ?, 'edited', ?, ?, ?)",
+    sessionId,
+    text,
+    user.id,
+    now(),
+    now(),
+  ).id;
+  createTask({ type: "expert_review", subject: `segment:${id}`, title: `${getSession(sessionId)?.code ?? ""} #${id}`, role: "curator", createdBy: user.id });
   audit(user.id, "segment.transcript", `segment:${id}`);
   revalidatePath(`/field/${sessionId}`);
 }

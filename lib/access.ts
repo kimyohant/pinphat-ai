@@ -1,12 +1,13 @@
 // ระดับสิทธิ์การเข้าถึง 5 ระดับ และบทบาทผู้ใช้ (ใช้ได้ทั้งฝั่ง server และ client)
 
-export type Role = "public" | "student" | "teacher" | "collector" | "curator" | "community";
+export type Role = "public" | "student" | "teacher" | "collector" | "assistant" | "curator" | "community";
 
 export const ROLE_LABEL: Record<Role, string> = {
   public: "ผู้เยี่ยมชม",
   student: "นักเรียน",
   teacher: "ครูดนตรี",
   collector: "ผู้เก็บข้อมูลภาคสนาม",
+  assistant: "ผู้ช่วยวิจัย",
   curator: "ผู้เชี่ยวชาญตรวจรับรอง",
   community: "ผู้ประสานงานชุมชน",
 };
@@ -29,9 +30,14 @@ export const ROLE_LEVELS: Record<Role, number[]> = {
   student: [1, 2],
   teacher: [1, 2],
   collector: [1, 2, 3],
+  // ผู้ช่วยวิจัยแก้คำถอดความได้ถึงระดับนักวิจัย งานของข้อมูลระดับชุมชนเท่านั้นส่งให้ผู้เชี่ยวชาญแทน
+  assistant: [1, 2, 3],
   curator: [1, 2, 3, 4],
   community: [1, 2, 4],
 };
+
+/** บทบาทที่ทำงานหลังบ้าน (มีคิวงาน) */
+export const BACK_OFFICE_ROLES: Role[] = ["collector", "assistant", "curator", "community"];
 
 export function canSee(role: Role, level: number | null | undefined): boolean {
   if (level == null) return false;

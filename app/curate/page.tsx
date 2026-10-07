@@ -7,7 +7,7 @@ import { fmt, fmtDate } from "@/lib/i18n/config";
 import { AccessBadge } from "@/components/AccessBadge";
 import { resolveFlag } from "./actions";
 
-type Q = { id: number; kind: string; ai_confidence: number | null; created_at: string; code: string; session_id: number; person: string | null; access_level: number | null; revoked_at: string | null; instrument: string | null; has_ai: number; transcript: string | null };
+type Q = { id: number; status: string; kind: string; ai_confidence: number | null; created_at: string; code: string; session_id: number; person: string | null; access_level: number | null; revoked_at: string | null; instrument: string | null; has_ai: number; transcript: string | null };
 
 export default async function CuratePage({ searchParams }: { searchParams: Promise<{ done?: string; chunks?: string }> }) {
   await requireRole("curator");
@@ -16,12 +16,12 @@ export default async function CuratePage({ searchParams }: { searchParams: Promi
   const thDate = (d: string | null | undefined) => fmtDate(d, locale);
   const CONTENT_TYPES = t.contentTypes as Record<string, string>;
   const queue = all<Q>(`
-    SELECT sg.id, sg.kind, sg.ai_confidence, sg.created_at, sg.transcript, s.code, s.id AS session_id, p.display_name AS person,
+    SELECT sg.id, sg.status, sg.kind, sg.ai_confidence, sg.created_at, sg.transcript, s.code, s.id AS session_id, p.display_name AS person,
            c.access_level, c.revoked_at, i.name_th AS instrument, sg.ai_suggestion IS NOT NULL AS has_ai
     FROM segments sg JOIN sessions s ON s.id = sg.session_id
     LEFT JOIN persons p ON p.id = s.person_id LEFT JOIN consents c ON c.id = s.consent_id LEFT JOIN instruments i ON i.id = sg.instrument_id
-    WHERE sg.status = 'pending'
-    ORDER BY sg.ai_confidence IS NULL DESC, sg.ai_confidence ASC, sg.created_at`);
+    WHERE sg.status IN ('pending', 'edited')
+    ORDER BY sg.status = 'edited' DESC, sg.ai_confidence IS NULL DESC, sg.ai_confidence ASC, sg.created_at`);
   const flags = all<{ id: number; question: string; answer: string; created_at: string; name: string | null }>(
     "SELECT f.id, f.question, f.answer, f.created_at, u.name FROM tutor_flags f LEFT JOIN users u ON u.id = f.user_id WHERE f.status = 'open' ORDER BY f.created_at DESC",
   );
@@ -74,6 +74,7 @@ export default async function CuratePage({ searchParams }: { searchParams: Promi
                   </td>
                   <td>
                     {CONTENT_TYPES[q.kind] ?? q.kind}
+                    {q.status === "edited" && <span className="badge ok">{t.draft.statusEdited}</span>}
                     {q.instrument && <span className="xs muted"> · {q.instrument}</span>}
                     {q.transcript && <div className="xs muted">{q.transcript.slice(0, 60)}…</div>}
                   </td>
