@@ -2342,6 +2342,73 @@ a.card:hover .lesson-go svg {
   }
 }
 
+/* score picker: 1 to 5 as a segmented row, radio inputs underneath for keyboard and forms without JS */
+.seg.score {
+  width: fit-content;
+  grid-auto-columns: minmax(40px, auto);
+}
+.seg.score label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 var(--s3);
+  border-radius: calc(var(--r-control) - 3px);
+  color: var(--ink-2);
+  font-size: var(--t-meta);
+  font-weight: 600;
+  cursor: pointer;
+}
+.seg.score input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.seg.score label:has(input:checked) {
+  background: var(--grad-brand);
+  color: var(--on-brand);
+  box-shadow: var(--lift-1);
+}
+.seg.score label:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.blind-answer {
+  gap: var(--s3);
+}
+.blind-answer .letter {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--grad-bronze);
+  color: var(--indigo-950);
+  font-weight: 700;
+}
+.blind-answer .text {
+  white-space: pre-wrap;
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-control);
+  background: var(--sunk);
+  font-size: var(--t-small);
+  line-height: var(--lh-thai);
+}
+.criteria {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--s3) var(--s5);
+}
+.criteria > div {
+  display: grid;
+  gap: 6px;
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+
 /* status line: a dot and a word, the dot carries the state */
 .status-line {
   display: flex;
