@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start",
     "reset": "node -e \"require('fs').rmSync('data',{recursive:true,force:true});console.log('ลบข้อมูลแล้ว ระบบจะสร้างข้อมูลตัวอย่างใหม่เมื่อเปิดครั้งถัดไป')\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "demo:add": "tsx scripts/demo.ts add",
+    "demo:clear": "tsx scripts/demo.ts clear"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

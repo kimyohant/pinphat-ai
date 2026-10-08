@@ -4,6 +4,7 @@ import path from "node:path";
 import type { DatabaseSync as DB, SQLInputValue } from "node:sqlite";
 import { seed } from "./seed";
 import { migrate } from "./migrate";
+import { expandDemoArchive } from "./demo-archive";
 
 const { DatabaseSync } = process.getBuiltinModule("node:sqlite") as typeof import("node:sqlite");
 
@@ -44,10 +45,11 @@ export function db(): DB {
   d.exec(SCHEMA);
   g.__pinphatDb = d;
   const n = d.prepare("SELECT COUNT(*) AS n FROM users").get() as { n: number };
-  if (n.n === 0) {
-    seed();
-  }
+  const fresh = n.n === 0;
+  if (fresh) seed();
   migrate(d);
+  // ติดตั้งใหม่ได้คลังสาธิตชุดเต็มทันที ลบออกได้ด้วย npm run demo:clear
+  if (fresh) expandDemoArchive();
   return d;
 }
 
