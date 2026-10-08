@@ -112,6 +112,20 @@
   --bone: #fbf1df;
   --scrim: rgba(10, 14, 30, 0.5);
   --scrim-soft: rgba(10, 14, 30, 0.45);
+
+  /* the AI tutor stage: always night, in both modes, so the gong glow reads */
+  --stage-deep: #070b1a;
+  --stage-panel: rgba(16, 21, 44, 0.62);
+  --stage-panel-2: rgba(22, 29, 60, 0.72);
+  --stage-line: rgba(218, 180, 106, 0.16);
+  --stage-line-2: rgba(248, 245, 238, 0.1);
+  --gold-glow: rgba(218, 180, 106, 0.55);
+  --gold-glow-soft: rgba(218, 180, 106, 0.16);
+  --indigo-glow: rgba(110, 128, 230, 0.35);
+  --grad-stage: radial-gradient(70% 55% at 50% 0%, rgba(62, 79, 163, 0.55) 0%, rgba(62, 79, 163, 0) 70%),
+    radial-gradient(45% 40% at 88% 100%, rgba(166, 116, 30, 0.22) 0%, rgba(166, 116, 30, 0) 70%),
+    radial-gradient(40% 35% at 6% 82%, rgba(43, 58, 135, 0.45) 0%, rgba(43, 58, 135, 0) 70%),
+    linear-gradient(180deg, #121a44 0%, #0b1024 46%, #070b1a 100%);
 }
 
 /* ═══════════════ กลางวัน · cotton in daylight ═══════════════ */
