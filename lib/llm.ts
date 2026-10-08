@@ -5,15 +5,22 @@ import type { Chunk } from "./kb";
 import { bestSentences } from "./kb";
 import { levelName } from "./access";
 import { UNSLOTH, acquireGpu, ensureModel, gpuBusy, streamChat, unslothEnabled } from "./unsloth";
+import { aiConfig, claudeClient } from "./ai-config";
 
-export const CLAUDE_MODEL = process.env.PINPHAT_MODEL || "claude-opus-5-5";
+export function claudeModel(): string {
+  return aiConfig().claudeModel;
+}
 
 export type Provider = "unsloth" | "claude" | "none";
 
 export function provider(): Provider {
-  const want = process.env.PINPHAT_LLM_PROVIDER;
-  const claudeOk = Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
-  if (want === "claude" && claudeOk) return "claude";
+  const cfg = aiConfig();
+  const want = cfg.provider;
+  const claudeOk = Boolean(cfg.claudeKey);
+  // เลือกเองในหน้าผู้ดูแล: ใช้ตามนั้นถ้าตั้งค่าครบ ไม่ครบก็ตอบแบบค้นคืนจากคลัง ไม่สลับไปผู้ให้บริการอื่นเงียบ ๆ
+  if (want === "none") return "none";
+  if (want === "claude") return claudeOk ? "claude" : "none";
+  if (want === "unsloth") return unslothEnabled() ? "unsloth" : "none";
   if (unslothEnabled()) return "unsloth";
   return claudeOk ? "claude" : "none";
 }
@@ -24,10 +31,11 @@ export function llmEnabled(): boolean {
 
 export function modelLabel(): string {
   const p = provider();
-  return p === "unsloth" ? UNSLOTH.text.replace(/^unsloth\//, "") : p === "claude" ? CLAUDE_MODEL : "ไม่มี";
+  return p === "unsloth" ? UNSLOTH.text.replace(/^unsloth\//, "") : p === "claude" ? claudeModel() : "ไม่มี";
 }
 
-const SYSTEM = `คุณคือ "ครูผู้ช่วย Pinphat" ผู้ช่วยสอนดนตรีพิณพาทย์ล้านช้างสำหรับนักเรียนและครูในโรงเรียนภาคตะวันออกเฉียงเหนือตอนบน
+/** prompt ของครูผู้ช่วย AI (ใช้ร่วมกับหน้าประเมินโมเดล เพื่อให้ทดสอบด้วย prompt เดียวกับของจริง) */
+export const SYSTEM = `คุณคือ "ครูผู้ช่วย Pinphat" ผู้ช่วยสอนดนตรีพิณพาทย์ล้านช้างสำหรับนักเรียนและครูในโรงเรียนภาคตะวันออกเฉียงเหนือตอนบน
 
 หลักการตอบ:
 - ตอบจากเนื้อหาใน <sources> ที่แนบมากับคำถามเท่านั้น ความรู้นี้เป็นของครูภูมิปัญญาที่ให้ความยินยอมไว้ ห้ามเติมข้อเท็จจริงทางประวัติศาสตร์ ชื่อเพลง หรือวิธีบรรเลงจากความรู้ทั่วไปของคุณ
@@ -48,7 +56,7 @@ export type Turn = { role: "user" | "assistant"; content: string };
 /** GPU กำลังสร้างรูปหรือวิดีโออยู่ ครูผู้ช่วย AI จึงตอบแบบค้นคืนแทนการรอ */
 export class GpuBusyError extends Error {}
 
-function userTurn(question: string, chunks: Chunk[]): string {
+export function userTurn(question: string, chunks: Chunk[]): string {
   return `<sources>\n${sourcesBlock(chunks)}\n</sources>\n\nคำถาม: ${question}`;
 }
 
@@ -69,9 +77,9 @@ export async function* streamAnswer(history: Turn[], question: string, chunks: C
     return;
   }
 
-  const client = new Anthropic();
+  const client = claudeClient();
   const stream = client.beta.messages.stream({
-    model: CLAUDE_MODEL,
+    model: claudeModel(),
     max_tokens: 16000,
     system: SYSTEM,
     output_config: { effort: "medium" },

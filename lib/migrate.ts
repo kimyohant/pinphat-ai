@@ -9,6 +9,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_open ON tasks(status, role);
 CREATE INDEX IF NOT EXISTS idx_tasks_subject ON tasks(subject);
 CREATE TABLE IF NOT EXISTS knowledge_gaps (id INTEGER PRIMARY KEY, question TEXT NOT NULL, norm TEXT UNIQUE, asked INTEGER DEFAULT 1, roles TEXT DEFAULT '[]', status TEXT DEFAULT 'open', session_id INTEGER, note TEXT, created_at TEXT, last_asked_at TEXT, closed_by INTEGER, closed_at TEXT);
 CREATE TABLE IF NOT EXISTS consent_requests (id INTEGER PRIMARY KEY, consent_id INTEGER NOT NULL, channel TEXT, requester TEXT, relation TEXT, kind TEXT NOT NULL, new_level INTEGER, details TEXT, status TEXT DEFAULT 'received', received_by INTEGER, received_at TEXT, verified_by INTEGER, verified_at TEXT, verify_note TEXT, done_by INTEGER, done_at TEXT, outcome TEXT);
+CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT, secret INTEGER DEFAULT 0, updated_by INTEGER, updated_at TEXT);
 CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY, person_id INTEGER NOT NULL, session_id INTEGER, amount REAL NOT NULL, purpose TEXT, method TEXT, paid_on TEXT, receipt_ref TEXT, recorded_by INTEGER, created_at TEXT);
 `;
 

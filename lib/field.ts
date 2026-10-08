@@ -4,7 +4,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { MEDIA_DIR, all, now, one, run } from "./db";
 import { analyzeWav } from "./audio";
-import { STT_MODEL, transcribe, unslothEnabled } from "./unsloth";
+import { sttModel, transcribe, unslothEnabled } from "./unsloth";
 import { createTask } from "./tasks";
 
 export type SessionRow = {
@@ -176,7 +176,7 @@ export function startTranscription(segmentId: number, language = "th"): boolean 
   if (!a) return false;
   const lang = language === "auto" ? null : language;
   const set = (s: AsrState) => run("UPDATE segments SET ai_suggestion = ? WHERE id = ?", JSON.stringify({ asr: s }), segmentId);
-  set({ status: "running", model: STT_MODEL, language: lang, at: now() });
+  set({ status: "running", model: sttModel(), language: lang, at: now() });
   asrActive.add(segmentId);
   const t0 = Date.now();
   void (async () => {
@@ -185,9 +185,9 @@ export function startTranscription(segmentId: number, language = "th"): boolean 
       const r = await transcribe(buf, a.filename, a.mime, language);
       run("UPDATE segments SET transcript = ?, ai_draft = ? WHERE id = ? AND status = 'pending'", r.text, r.text, segmentId);
       transcriptTask(segmentId);
-      set({ status: "done", model: STT_MODEL, language: r.language ?? lang, seconds: Math.round((Date.now() - t0) / 1000), at: now() });
+      set({ status: "done", model: sttModel(), language: r.language ?? lang, seconds: Math.round((Date.now() - t0) / 1000), at: now() });
     } catch (e) {
-      set({ status: "failed", model: STT_MODEL, language: lang, error: e instanceof Error ? e.message : String(e), at: now() });
+      set({ status: "failed", model: sttModel(), language: lang, error: e instanceof Error ? e.message : String(e), at: now() });
       transcriptTask(segmentId, " · ASR ✗");
     } finally {
       asrActive.delete(segmentId);

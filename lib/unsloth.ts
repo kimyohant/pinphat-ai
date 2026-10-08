@@ -1,17 +1,36 @@
 // ไคลเอนต์เซิร์ฟเวอร์ Unsloth Studio (API แบบ OpenAI-compatible) และตัวจัดการโมเดลบน GPU
 // เซิร์ฟเวอร์ถือโมเดลได้ทีละตัว การโหลดโมเดลหนึ่งจะปลดโมเดลอื่นออก จึงสลับโมเดลตามงานผ่านคิวเดียว
 
+import { aiConfig } from "./ai-config";
+
 export type ModelKind = "text" | "image" | "video";
 
+// อ่านค่าทุกครั้งที่ใช้ ผู้ดูแลเปลี่ยนเซิร์ฟเวอร์หรือคีย์ในหน้าเว็บแล้วมีผลทันทีโดยไม่ต้องรีสตาร์ต
 export const UNSLOTH = {
-  baseUrl: (process.env.UNSLOTH_BASE_URL ?? "").replace(/\/+$/, ""),
-  apiKey: process.env.UNSLOTH_API_KEY ?? "",
-  text: process.env.UNSLOTH_TEXT_MODEL || "unsloth/Qwen3.8-27B-GGUF",
-  textVariant: process.env.UNSLOTH_TEXT_VARIANT || "UD-Q5_K_M",
-  textContext: Number(process.env.UNSLOTH_TEXT_CONTEXT || 32768),
-  image: process.env.UNSLOTH_IMAGE_MODEL || "Qwen/Qwen-Image-2.1",
-  video: process.env.UNSLOTH_VIDEO_MODEL || "unsloth/Wan2.2-TI2V-5B-GGUF",
-  videoFile: process.env.UNSLOTH_VIDEO_FILE || "Wan2.2-TI2V-5B-Q8_0.gguf",
+  get baseUrl() {
+    return aiConfig().unslothUrl;
+  },
+  get apiKey() {
+    return aiConfig().unslothKey;
+  },
+  get text() {
+    return aiConfig().textModel;
+  },
+  get textVariant() {
+    return aiConfig().textVariant;
+  },
+  get textContext() {
+    return Number(aiConfig().textContext) || 32768;
+  },
+  get image() {
+    return aiConfig().imageModel;
+  },
+  get video() {
+    return aiConfig().videoModel;
+  },
+  get videoFile() {
+    return aiConfig().videoFile;
+  },
 };
 
 export function unslothEnabled(): boolean {
@@ -28,7 +47,7 @@ export class UnslothError extends Error {
 }
 
 export async function call(path: string, init: RequestInit & { timeoutMs?: number } = {}): Promise<Response> {
-  if (!unslothEnabled()) throw new UnslothError("ยังไม่ได้ตั้งค่า UNSLOTH_BASE_URL และ UNSLOTH_API_KEY");
+  if (!unslothEnabled()) throw new UnslothError("ยังไม่ได้ตั้งค่าเซิร์ฟเวอร์ Unsloth (ตั้งได้ที่หน้าผู้ดูแลระบบ > การตั้งค่า AI)");
   const { timeoutMs = 60_000, ...rest } = init;
   let res: Response;
   try {
@@ -268,12 +287,14 @@ export async function videoContent(id: string): Promise<Buffer> {
 // ---------- ถอดเสียงพูด ----------
 // ตัวถอดเสียงของ Unsloth ทำงานเป็น sidecar คู่กับโมเดลภาษา ไม่ต้องสลับโมเดลบน GPU จึงไม่ต้องเข้าคิว
 
-export const STT_MODEL = process.env.UNSLOTH_STT_MODEL || "large-v3-turbo";
+export function sttModel(): string {
+  return aiConfig().sttModel;
+}
 
 export async function transcribe(buf: Buffer, name: string, mime: string, language?: string): Promise<{ text: string; language: string | null; duration: number | null }> {
   const fd = new FormData();
   fd.set("file", new File([new Uint8Array(buf)], name, { type: mime || "application/octet-stream" }));
-  fd.set("model", STT_MODEL);
+  fd.set("model", sttModel());
   if (language && language !== "auto") fd.set("language", language);
   fd.set("response_format", "verbose_json");
   const j = await json<{ text?: string; language?: string; duration?: number }>("/v1/audio/transcriptions", { method: "POST", body: fd, timeoutMs: 45 * 60_000 });

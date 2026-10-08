@@ -19,7 +19,8 @@ export type User = {
 export const GUEST: User = { id: 0, name: "ผู้เยี่ยมชม", role: "public", school_id: null, class_name: null, title: null };
 export const COOKIE = "pp_session";
 
-function secret(): string {
+/** คีย์ลับของเซิร์ฟเวอร์ ใช้ลงชื่อคุกกี้ และเป็นวัตถุดิบของคีย์เข้ารหัสค่าตั้ง AI (lib/ai-config.ts) */
+export function secret(): string {
   if (process.env.PINPHAT_SECRET) return process.env.PINPHAT_SECRET;
   db(); // ให้แน่ใจว่าโฟลเดอร์ data ถูกสร้างแล้ว
   const file = path.join(DATA_DIR, "secret");
