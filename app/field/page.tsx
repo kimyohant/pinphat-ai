@@ -6,6 +6,7 @@ import { AccessBadge } from "@/components/AccessBadge";
 import { getT } from "@/lib/i18n/server";
 import { fmtDate } from "@/lib/i18n/config";
 import { Icon } from "@/components/ui/Icon";
+import { DeskHead } from "@/components/desk/DeskHead";
 
 
 export default async function FieldPage() {
@@ -23,17 +24,21 @@ export default async function FieldPage() {
   );
   return (
     <main id="main" className="page">
-      <div className="row between">
-        <div className="page-head">
-          <span className="eyebrow">{t.field.eyebrow}</span>
-          <h1>{t.field.title}</h1>
-          <p>{t.field.lede}</p>
-        </div>
-        <Link className="btn" href="/field/new">
+      <DeskHead
+        eyebrow={t.field.eyebrow}
+        title={t.field.title}
+        lede={t.field.lede}
+        stats={[
+          { value: sessions.length, label: t.field.colSession },
+          { value: sessions.reduce((a, s) => a + (s.assets ?? 0), 0), label: t.field.colFiles },
+          { value: sessions.reduce((a, s) => a + (s.pending ?? 0), 0), label: t.field.colPending },
+        ]}
+      >
+        <Link className="btn gold" href="/field/new">
           <Icon name="field" size={18} />
           {t.field.newSession}
         </Link>
-      </div>
+      </DeskHead>
       <div className="tbl">
         <table>
           <thead>

@@ -7,6 +7,7 @@ import { json } from "@/lib/format";
 import { AccessBadge } from "@/components/AccessBadge";
 import { changeLevel, revokeConsent } from "./actions";
 import { ConsentTabs } from "@/components/ConsentTabs";
+import { DeskHead } from "@/components/desk/DeskHead";
 
 
 export default async function ConsentPage() {
@@ -37,11 +38,16 @@ export default async function ConsentPage() {
 
   return (
     <main id="main" className="page">
-      <div className="page-head">
-        <span className="eyebrow">{t.consent.eyebrow}</span>
-        <h1>{t.consent.title}</h1>
-        <p>{t.consent.lede}</p>
-      </div>
+      <DeskHead
+        eyebrow={t.consent.eyebrow}
+        title={t.consent.title}
+        lede={t.consent.lede}
+        stats={[
+          { value: consents.filter((c) => !c.revoked_at).length, label: t.admin.oConsents },
+          { value: consents.filter((c) => c.revoked_at).length, label: t.admin.oRevoked },
+          { value: consents.reduce((a, c) => a + c.chunks, 0), label: t.consent.chunks },
+        ]}
+      />
       <ConsentTabs t={t} active="registry" />
       <div className="stack">
         {consents.map((c) => (

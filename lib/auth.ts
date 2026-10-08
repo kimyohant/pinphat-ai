@@ -45,7 +45,7 @@ function verify(token: string | undefined): number | null {
 export async function getUser(): Promise<User> {
   const id = verify((await cookies()).get(COOKIE)?.value);
   if (!id) return GUEST;
-  return one<User>("SELECT id, name, role, school_id, class_name, title FROM users WHERE id = ?", id) ?? GUEST;
+  return one<User>("SELECT id, name, role, school_id, class_name, title FROM users WHERE id = ? AND active = 1", id) ?? GUEST;
 }
 
 /** ใช้ในหน้าเว็บ: ถ้าบทบาทไม่ตรง ส่งไปหน้าเข้าสู่ระบบ */

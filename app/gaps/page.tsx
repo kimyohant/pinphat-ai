@@ -5,6 +5,7 @@ import { getT } from "@/lib/i18n/server";
 import { fmt, fmtDate } from "@/lib/i18n/config";
 import type { Role } from "@/lib/access";
 import { updateGap } from "./actions";
+import { DeskHead } from "@/components/desk/DeskHead";
 
 type Gap = { id: number; question: string; asked: number; roles: string; status: string; note: string | null; last_asked_at: string; code: string | null };
 
@@ -25,11 +26,16 @@ export default async function GapsPage() {
 
   return (
     <main id="main" className="page">
-      <div className="page-head">
-        <span className="eyebrow">{t.gaps.eyebrow}</span>
-        <h1>{t.gaps.title}</h1>
-        <p>{t.gaps.lede}</p>
-      </div>
+      <DeskHead
+        eyebrow={t.gaps.eyebrow}
+        title={t.gaps.title}
+        lede={t.gaps.lede}
+        stats={[
+          { value: gaps.filter((g) => g.status === "open").length, label: t.gaps.stOpen, alert: gaps.some((g) => g.status === "open") },
+          { value: gaps.filter((g) => g.status === "planned").length, label: t.gaps.stPlanned },
+          { value: gaps.reduce((a, g) => a + g.asked, 0), label: t.gaps.colAsked },
+        ]}
+      />
       {gaps.length === 0 ? (
         <div className="empty">{t.gaps.empty}</div>
       ) : (

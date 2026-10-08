@@ -6,6 +6,7 @@ import { LEVELS } from "@/lib/access";
 import { AccessBadge } from "@/components/AccessBadge";
 import { ConsentTabs } from "@/components/ConsentTabs";
 import { createRequest, resolveRequest, verifyRequest } from "../actions";
+import { DeskHead } from "@/components/desk/DeskHead";
 
 type Req = {
   id: number;
@@ -66,12 +67,17 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
 
   return (
     <main id="main" className="page">
-      <div className="page-head">
-        <span className="eyebrow">{t.creq.eyebrow}</span>
-        <h1>{t.creq.title}</h1>
-        <p>{t.creq.lede}</p>
-      </div>
-      <ConsentTabs t={t} active="requests" />
+      <DeskHead
+        eyebrow={t.creq.eyebrow}
+        title={t.creq.title}
+        lede={t.creq.lede}
+        stats={[
+          { value: reqs.filter((r) => r.status === "received").length, label: t.creq.stReceived, alert: reqs.some((r) => r.status === "received") },
+          { value: reqs.filter((r) => r.status === "verified").length, label: t.creq.stVerified },
+          { value: reqs.filter((r) => r.status === "done").length, label: t.creq.stDone },
+        ]}
+      />
+      <ConsentTabs t={t} active="requests" counts={{ requests: reqs.filter((r) => r.status === "received" || r.status === "verified").length }} />
       {error === "same" && <div className="notice crit">{t.creq.sameUser}</div>}
 
       <div className="split">

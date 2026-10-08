@@ -6,6 +6,7 @@ import { getT } from "@/lib/i18n/server";
 import { fmt, fmtDate } from "@/lib/i18n/config";
 import { AccessBadge } from "@/components/AccessBadge";
 import { resolveFlag } from "./actions";
+import { DeskHead } from "@/components/desk/DeskHead";
 
 type Q = { id: number; status: string; kind: string; ai_confidence: number | null; created_at: string; code: string; session_id: number; person: string | null; access_level: number | null; revoked_at: string | null; instrument: string | null; has_ai: number; transcript: string | null };
 
@@ -35,21 +36,9 @@ export default async function CuratePage({ searchParams }: { searchParams: Promi
 
   return (
     <main id="main" className="page">
-      <div className="page-head">
-        <span className="eyebrow">{t.curate.eyebrow}</span>
-        <h1>{t.curate.title}</h1>
-        <p>{t.curate.lede}</p>
-      </div>
+      <DeskHead eyebrow={t.curate.eyebrow} title={t.curate.title} lede={t.curate.lede} stats={stats.map((x, i) => ({ value: x.v, label: x.l, alert: i === 1 && x.v > 0 }))} />
       {done === "approved" && <div className="notice ok">{fmt(t.curate.approved, { n: chunks ?? 0 })}</div>}
       {done === "rejected" && <div className="notice">{t.curate.rejected}</div>}
-      <div className="grid cols-4">
-        {stats.map((s) => (
-          <div key={s.l} className="card stat">
-            <b>{s.v}</b>
-            <span>{s.l}</span>
-          </div>
-        ))}
-      </div>
 
       <section className="stack">
         <h2>{t.curate.queue}</h2>

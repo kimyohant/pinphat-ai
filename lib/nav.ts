@@ -2,7 +2,7 @@
 import type { Role } from "./access";
 import type { Dict } from "./i18n";
 
-export type NavKey = "home" | "learn" | "tutor" | "archive" | "work" | "teach" | "studio" | "field" | "curate" | "consent";
+export type NavKey = "home" | "learn" | "tutor" | "archive" | "work" | "admin" | "teach" | "studio" | "field" | "curate" | "consent";
 
 export type NavItem = { key: NavKey; href: string; roles?: Role[]; group: "learn" | "work" };
 
@@ -12,6 +12,7 @@ export const NAV: NavItem[] = [
   { key: "tutor", href: "/tutor", group: "learn" },
   { key: "archive", href: "/archive", group: "learn" },
   { key: "work", href: "/work", roles: ["collector", "assistant", "curator", "community"], group: "work" },
+  { key: "admin", href: "/admin", roles: ["admin", "curator"], group: "work" },
   { key: "teach", href: "/teach", roles: ["teacher", "curator"], group: "work" },
   { key: "studio", href: "/studio", roles: ["teacher", "collector", "curator"], group: "work" },
   { key: "field", href: "/field", roles: ["collector", "curator"], group: "work" },
@@ -31,6 +32,7 @@ export const TABS_BY_ROLE: Record<Role, NavKey[]> = {
   assistant: ["home", "work", "archive", "tutor"],
   curator: ["home", "work", "curate", "field"],
   community: ["home", "work", "consent", "archive"],
+  admin: ["home", "admin", "archive", "tutor"],
 };
 
 export function navFor(role: Role): NavItem[] {

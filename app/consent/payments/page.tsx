@@ -4,6 +4,7 @@ import { getT } from "@/lib/i18n/server";
 import { INTL_LOCALE, fmt, fmtDate } from "@/lib/i18n/config";
 import { ConsentTabs } from "@/components/ConsentTabs";
 import { addPayment } from "../actions";
+import { DeskHead } from "@/components/desk/DeskHead";
 
 type Pay = { id: number; person: string; code: string | null; amount: number; purpose: string | null; method: string; paid_on: string; receipt_ref: string | null; recorder: string | null };
 
@@ -25,11 +26,16 @@ export default async function PaymentsPage() {
 
   return (
     <main id="main" className="page">
-      <div className="page-head">
-        <span className="eyebrow">{t.creq.eyebrow}</span>
-        <h1>{t.pay.title}</h1>
-        <p>{t.pay.lede}</p>
-      </div>
+      <DeskHead
+        eyebrow={t.creq.eyebrow}
+        title={t.pay.title}
+        lede={t.pay.lede}
+        stats={[
+          { value: money(grand), label: t.pay.total },
+          { value: pays.length, label: t.pay.list },
+          { value: totals.length, label: t.pay.person },
+        ]}
+      />
       <ConsentTabs t={t} active="payments" />
 
       <div className="split">

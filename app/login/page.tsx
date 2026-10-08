@@ -11,6 +11,7 @@ const ROLE_ICON: Record<Role, IconName> = {
   teacher: "teach",
   collector: "field",
   assistant: "work",
+  admin: "admin",
   curator: "curate",
   community: "consent",
 };
@@ -18,7 +19,7 @@ const ROLE_ICON: Record<Role, IconName> = {
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ need?: string }> }) {
   const [{ need }, { t }] = await Promise.all([searchParams, getT()]);
   const users = all<{ id: number; name: string; role: Role; title: string | null }>(
-    "SELECT id, name, role, title FROM users WHERE role != 'student' OR id = 1 ORDER BY CASE role WHEN 'student' THEN 1 WHEN 'teacher' THEN 2 WHEN 'collector' THEN 3 WHEN 'assistant' THEN 4 WHEN 'curator' THEN 5 ELSE 6 END",
+    "SELECT id, name, role, title FROM users WHERE active = 1 AND (role != 'student' OR id = 1) ORDER BY CASE role WHEN 'student' THEN 1 WHEN 'teacher' THEN 2 WHEN 'collector' THEN 3 WHEN 'assistant' THEN 4 WHEN 'curator' THEN 5 WHEN 'community' THEN 6 ELSE 7 END",
   );
   return (
     <main id="main" className="page">

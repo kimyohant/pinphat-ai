@@ -10,11 +10,13 @@ const HOME: Record<string, string> = {
   collector: "/field",
   curator: "/curate",
   community: "/consent",
+  assistant: "/work",
+  admin: "/admin",
 };
 
 export async function loginAs(formData: FormData) {
   const id = Number(formData.get("userId"));
-  const u = one<{ id: number; role: string }>("SELECT id, role FROM users WHERE id = ?", id);
+  const u = one<{ id: number; role: string }>("SELECT id, role FROM users WHERE id = ? AND active = 1", id);
   if (!u) redirect("/login");
   (await cookies()).set(COOKIE, sign(u.id), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 14 });
   audit(u.id, "login", `user:${u.id}`);

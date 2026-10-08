@@ -10,6 +10,10 @@ export type IconName =
   | "curate"
   | "consent"
   | "work"
+  | "admin"
+  | "users"
+  | "log"
+  | "gap"
   | "more"
   | "sun"
   | "moon"
@@ -28,6 +32,38 @@ export type IconName =
   | "wave";
 
 const P: Record<IconName, React.ReactNode> = {
+  // บัญชีผู้ใช้: สองคนยืนซ้อนกัน
+  users: (
+    <>
+      <circle cx="9" cy="8.5" r="3" />
+      <path d="M3.5 19c.6-3 2.8-4.8 5.5-4.8s4.9 1.8 5.5 4.8" />
+      <circle cx="16.5" cy="9.5" r="2.3" />
+      <path d="M15.5 14.4c2.3 0 4.2 1.5 4.8 4.1" />
+    </>
+  ),
+  // บันทึกการใช้งาน: แผ่นรายการมีเส้นเวลา
+  log: (
+    <>
+      <path d="M6 4h12v16H6z" />
+      <path d="M9 8.5h6M9 12h6M9 15.5h4" />
+    </>
+  ),
+  // ช่องว่างความรู้: วงฆ้องที่ขาดหนึ่งลูก
+  gap: (
+    <>
+      <path d="M12 4a8 8 0 1 1-7.4 5" />
+      <circle cx="5.2" cy="6.6" r="1.4" />
+    </>
+  ),
+  // ผู้ดูแลระบบ: แผงปรับค่า (แถบเลื่อนสามเส้น)
+  admin: (
+    <>
+      <path d="M5 7h14M5 12h14M5 17h14" />
+      <circle cx="9" cy="7" r="1.8" />
+      <circle cx="15" cy="12" r="1.8" />
+      <circle cx="8" cy="17" r="1.8" />
+    </>
+  ),
   // ถาดงาน: กล่องรับงานของหลังบ้าน
   work: (
     <>

@@ -1,6 +1,6 @@
 // ระดับสิทธิ์การเข้าถึง 5 ระดับ และบทบาทผู้ใช้ (ใช้ได้ทั้งฝั่ง server และ client)
 
-export type Role = "public" | "student" | "teacher" | "collector" | "assistant" | "curator" | "community";
+export type Role = "public" | "student" | "teacher" | "collector" | "assistant" | "curator" | "community" | "admin";
 
 export const ROLE_LABEL: Record<Role, string> = {
   public: "ผู้เยี่ยมชม",
@@ -10,6 +10,7 @@ export const ROLE_LABEL: Record<Role, string> = {
   assistant: "ผู้ช่วยวิจัย",
   curator: "ผู้เชี่ยวชาญตรวจรับรอง",
   community: "ผู้ประสานงานชุมชน",
+  admin: "ผู้ดูแลระบบ",
 };
 
 export const LEVELS = [
@@ -34,6 +35,8 @@ export const ROLE_LEVELS: Record<Role, number[]> = {
   assistant: [1, 2, 3],
   curator: [1, 2, 3, 4],
   community: [1, 2, 4],
+  // ผู้ดูแลระบบจัดการบัญชีและระบบ ไม่จำเป็นต้องเห็นเนื้อหาที่จำกัดสิทธิ์
+  admin: [1],
 };
 
 /** บทบาทที่ทำงานหลังบ้าน (มีคิวงาน) */

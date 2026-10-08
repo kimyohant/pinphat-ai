@@ -1,7 +1,7 @@
 // ปรับฐานข้อมูลเดิมให้มีตารางและคอลัมน์ของหลังบ้าน (ADR-0001) โดยไม่ลบข้อมูลที่มีอยู่
 import type { DatabaseSync } from "node:sqlite";
 
-const VERSION = 2;
+const VERSION = 3;
 
 export const BACKOFFICE_SCHEMA = `
 CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY, type TEXT NOT NULL, subject TEXT NOT NULL, title TEXT, role TEXT, assignee_id INTEGER, status TEXT DEFAULT 'open', due_on TEXT, note TEXT, created_by INTEGER, created_at TEXT, started_at TEXT, done_at TEXT);
@@ -21,7 +21,21 @@ export function migrate(d: DatabaseSync): void {
   d.exec(BACKOFFICE_SCHEMA);
   const v = (d.prepare("PRAGMA user_version").get() as { user_version: number }).user_version;
   if (v >= VERSION) return;
+  if (v < 2) migrateV2(d);
+  if (v < 3) migrateV3(d);
+  d.exec(`PRAGMA user_version = ${VERSION}`);
+}
 
+/** v3: ปิดบัญชีได้โดยไม่ลบ (เก็บประวัติไว้ตรวจสอบ) และบัญชีผู้ดูแลระบบ */
+function migrateV3(d: DatabaseSync): void {
+  addColumn(d, "users", "active", "INTEGER DEFAULT 1");
+  if (!d.prepare("SELECT 1 FROM users WHERE role = 'admin'").get()) {
+    d.prepare("INSERT INTO users (name, role, school_id, class_name, title, active) VALUES (?, 'admin', NULL, NULL, ?, 1)").run("ผู้ดูแลระบบ", "ผู้ดูแลระบบตัวอย่าง");
+  }
+}
+
+/** v2: ตารางหลังบ้าน (ADR-0001 ข้อ 1–4) */
+function migrateV2(d: DatabaseSync): void {
   // ร่างจาก AI เก็บแยกไว้เทียบกับฉบับที่รับรอง เพื่อวัดอัตราที่คนต้องแก้
   addColumn(d, "segments", "ai_draft", "TEXT");
   addColumn(d, "segments", "edited_by", "INTEGER");
@@ -65,5 +79,4 @@ export function migrate(d: DatabaseSync): void {
       ins.run("tutor_flag", `flag:${f.id}`, f.question.slice(0, 120), "curator", due(3), t);
     }
   }
-  d.exec(`PRAGMA user_version = ${VERSION}`);
 }

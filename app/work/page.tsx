@@ -6,8 +6,18 @@ import { getT } from "@/lib/i18n/server";
 import { fmt, fmtDate } from "@/lib/i18n/config";
 import { tasksFor, type Task } from "@/lib/tasks";
 import type { Role } from "@/lib/access";
-import { Icon } from "@/components/ui/Icon";
+import { Icon, type IconName } from "@/components/ui/Icon";
+import { DeskHead, DeskLinks } from "@/components/desk/DeskHead";
 import { assignTask, claimTask, releaseTask } from "./actions";
+
+const TYPE_ICON: Record<string, IconName> = {
+  review_transcript: "tutor",
+  review_notation: "learn",
+  expert_review: "curate",
+  tutor_flag: "spark",
+  knowledge_gap: "gap",
+  consent_request: "consent",
+};
 
 /** ลิงก์จากงานไปยังหน้าที่ใช้ทำงานนั้น */
 function hrefFor(t: Task): string {
@@ -19,20 +29,25 @@ function hrefFor(t: Task): string {
   return "/work";
 }
 
-const LINKS: Record<string, { href: string; key: "gapsLink" | "requestsLink" | "paymentsLink" | "queueLink" }[]> = {
+const count = (sql: string) => () => one<{ n: number }>(sql)?.n ?? 0;
+const pendingReview = count("SELECT COUNT(*) AS n FROM segments WHERE status IN ('pending', 'edited')");
+const openGaps = count("SELECT COUNT(*) AS n FROM knowledge_gaps WHERE status = 'open'");
+const openRequests = count("SELECT COUNT(*) AS n FROM consent_requests WHERE status IN ('received', 'verified')");
+type DeskKey = "gapsLink" | "requestsLink" | "paymentsLink" | "queueLink";
+const LINKS: Record<string, { href: string; key: DeskKey; icon: IconName; count?: () => number }[]> = {
   curator: [
-    { href: "/curate", key: "queueLink" },
-    { href: "/gaps", key: "gapsLink" },
-    { href: "/consent/requests", key: "requestsLink" },
-    { href: "/consent/payments", key: "paymentsLink" },
+    { href: "/curate", key: "queueLink", icon: "curate", count: pendingReview },
+    { href: "/gaps", key: "gapsLink", icon: "gap", count: openGaps },
+    { href: "/consent/requests", key: "requestsLink", icon: "consent", count: openRequests },
+    { href: "/consent/payments", key: "paymentsLink", icon: "shield" },
   ],
   collector: [
-    { href: "/gaps", key: "gapsLink" },
-    { href: "/consent/requests", key: "requestsLink" },
+    { href: "/gaps", key: "gapsLink", icon: "gap", count: openGaps },
+    { href: "/consent/requests", key: "requestsLink", icon: "consent", count: openRequests },
   ],
   community: [
-    { href: "/consent/requests", key: "requestsLink" },
-    { href: "/consent/payments", key: "paymentsLink" },
+    { href: "/consent/requests", key: "requestsLink", icon: "consent", count: openRequests },
+    { href: "/consent/payments", key: "paymentsLink", icon: "shield" },
   ],
   assistant: [],
 };
@@ -58,137 +73,97 @@ export default async function WorkPage({ searchParams }: { searchParams: Promise
 
   return (
     <main id="main" className="page">
-      <div className="page-head">
-        <span className="eyebrow">{t.work.eyebrow}</span>
-        <h1>{t.work.title}</h1>
-        <p>{t.work.lede}</p>
-      </div>
+      <DeskHead
+        eyebrow={t.work.eyebrow}
+        title={t.work.title}
+        lede={t.work.lede}
+        stats={[
+          { value: open.length, label: t.work.stOpen },
+          { value: mine.length, label: t.work.stMine },
+          { value: overdue.length, label: t.work.stOverdue, alert: overdue.length > 0 },
+          { value: rate?.n ? pct(rate.avg) : "-", label: t.work.stEditRate },
+        ]}
+      />
       {done === "sent" && <div className="notice ok">{t.draft.sent}</div>}
-
-      <div className="grid cols-4">
-        <div className="card stat">
-          <b>{open.length}</b>
-          <span>{t.work.stOpen}</span>
-        </div>
-        <div className="card stat">
-          <b>{mine.length}</b>
-          <span>{t.work.stMine}</span>
-        </div>
-        <div className="card stat">
-          <b style={{ color: overdue.length ? "var(--crit)" : undefined }}>{overdue.length}</b>
-          <span>{t.work.stOverdue}</span>
-        </div>
-        <div className="card stat">
-          <b>{rate?.n ? pct(rate.avg) : "-"}</b>
-          <span>{t.work.stEditRate}</span>
-          {rate?.n ? <span className="xs muted">{fmt(t.work.stEditRateHint, { n: rate.n })}</span> : null}
-        </div>
-      </div>
-
       {LINKS[user.role]?.length > 0 && (
-        <div className="row">
-          {LINKS[user.role].map((l) => (
-            <Link key={l.href} className="btn ghost sm" href={l.href}>
-              {t.work[l.key]}
-            </Link>
-          ))}
-        </div>
+        <DeskLinks links={LINKS[user.role].map((l) => ({ href: l.href, label: t.work[l.key], icon: l.icon, count: l.count?.() }))} />
       )}
 
       <section className="stack">
-        <div className="row between">
-          <h2>{t.work.title}</h2>
-          <Link className="small" href={showAll === "1" ? "/work" : "/work?all=1"}>
-            {showAll === "1" ? t.work.hideDone : t.work.showDone}
+        <nav className="seg links" aria-label={t.work.title}>
+          <Link href="/work" aria-current={showAll === "1" ? undefined : "page"}>
+            {t.work.stOpen} <span className="n">{open.length}</span>
           </Link>
-        </div>
+          <Link href="/work?all=1" aria-current={showAll === "1" ? "page" : undefined}>
+            {t.work.showDone}
+          </Link>
+        </nav>
         {tasks.length === 0 ? (
           <div className="empty">{t.work.empty}</div>
         ) : (
-          <div className="tbl">
-            <table>
-              <thead>
-                <tr>
-                  <th>{t.work.colTask}</th>
-                  <th>{t.work.colWho}</th>
-                  <th>{t.work.colDue}</th>
-                  <th>{t.work.colStatus}</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {tasks.map((x) => {
-                  const late = x.due_on && x.due_on < today && (x.status === "open" || x.status === "in_progress");
-                  const active = x.status === "open" || x.status === "in_progress";
-                  return (
-                    <tr key={x.id}>
-                      <td>
-                        <Link href={hrefFor(x)}>
-                          <b>{TYPES[x.type] ?? x.type}</b>
-                        </Link>
-                        <div className="xs muted">{x.title}</div>
-                      </td>
-                      <td>
-                        {x.assignee ?? <span className="muted">{fmt(t.work.unassigned, { role: t.roles[x.role] ?? x.role })}</span>}
-                        {user.role === "curator" && active && (
-                          <form action={assignTask} className="row" style={{ marginTop: 4 }}>
-                            <input type="hidden" name="taskId" value={x.id} />
-                            <select name="assigneeId" defaultValue={x.assignee_id ?? ""} aria-label={t.work.assignTo} style={{ width: "auto" }}>
-                              <option value="">—</option>
-                              {team
-                                .filter((m) => m.role === x.role || m.role === "curator")
-                                .map((m) => (
-                                  <option key={m.id} value={m.id}>
-                                    {m.name}
-                                  </option>
-                                ))}
-                            </select>
-                            <button className="btn ghost sm" type="submit">
-                              {t.work.assign}
-                            </button>
-                          </form>
-                        )}
-                      </td>
-                      <td className="xs">
-                        {fmtDate(x.due_on, locale)}
-                        {late && (
-                          <>
-                            {" "}
-                            <span className="badge crit">{t.work.overdue}</span>
-                          </>
-                        )}
-                      </td>
-                      <td>
-                        <span className={`badge ${STATUS[x.status]?.[1] ?? ""}`}>{STATUS[x.status]?.[0] ?? x.status}</span>
-                      </td>
-                      <td>
-                        <div className="row">
-                          {active && x.assignee_id !== user.id && (x.role === user.role || user.role === "curator") && (
-                            <form action={claimTask.bind(null, x.id)}>
-                              <button className="btn sm" type="submit">
-                                {t.work.claim}
-                              </button>
-                            </form>
-                          )}
-                          {active && x.assignee_id === user.id && (
-                            <form action={releaseTask.bind(null, x.id)}>
-                              <button className="btn ghost sm" type="submit">
-                                {t.work.release}
-                              </button>
-                            </form>
-                          )}
-                          <Link className="btn ghost sm" href={hrefFor(x)}>
-                            <Icon name="arrow" size={14} />
-                            {t.work.open}
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <ul className="task-list">
+            {tasks.map((x) => {
+              const active = x.status === "open" || x.status === "in_progress";
+              const late = active && !!x.due_on && x.due_on < today;
+              return (
+                <li key={x.id} className={`card task${late ? " late" : ""}${active ? "" : " closed"}`}>
+                  <span className="ico">
+                    <Icon name={TYPE_ICON[x.type] ?? "work"} size={20} />
+                  </span>
+                  <div className="task-main">
+                    <Link href={hrefFor(x)}>
+                      <b>{TYPES[x.type] ?? x.type}</b>
+                    </Link>
+                    <span className="small muted">{x.title}</span>
+                    <div className="row xs">
+                      <span className={`badge ${STATUS[x.status]?.[1] ?? ""}`}>{STATUS[x.status]?.[0] ?? x.status}</span>
+                      <span className={`badge ${late ? "crit" : ""}`}>
+                        {t.work.colDue} {fmtDate(x.due_on, locale)}
+                      </span>
+                      <span className="muted">{x.assignee ?? fmt(t.work.unassigned, { role: t.roles[x.role] ?? x.role })}</span>
+                    </div>
+                  </div>
+                  <div className="task-actions">
+                    {user.role === "curator" && active && (
+                      <form action={assignTask} className="assign">
+                        <input type="hidden" name="taskId" value={x.id} />
+                        <select name="assigneeId" defaultValue={x.assignee_id ?? ""} aria-label={t.work.assignTo}>
+                          <option value="">{t.work.assignTo}…</option>
+                          {team
+                            .filter((m) => m.role === x.role || m.role === "curator")
+                            .map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.name}
+                              </option>
+                            ))}
+                        </select>
+                        <button className="btn ghost sm" type="submit">
+                          {t.work.assign}
+                        </button>
+                      </form>
+                    )}
+                    {active && x.assignee_id !== user.id && (x.role === user.role || user.role === "curator") && (
+                      <form action={claimTask.bind(null, x.id)}>
+                        <button className="btn sm" type="submit">
+                          {t.work.claim}
+                        </button>
+                      </form>
+                    )}
+                    {active && x.assignee_id === user.id && (
+                      <form action={releaseTask.bind(null, x.id)}>
+                        <button className="btn ghost sm" type="submit">
+                          {t.work.release}
+                        </button>
+                      </form>
+                    )}
+                    <Link className="btn ghost sm" href={hrefFor(x)} aria-label={`${t.work.open} ${TYPES[x.type] ?? x.type}`}>
+                      <Icon name="arrow" size={16} />
+                    </Link>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </section>
     </main>
