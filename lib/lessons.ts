@@ -12,6 +12,7 @@ export type LessonRow = {
   difficulty: number;
   base_hz: number | null;
   segment_id: number | null;
+  instrument_id: number | null;
   instrument: string | null;
   person: string | null;
   variant: string | null;
@@ -20,7 +21,7 @@ export type LessonRow = {
 };
 
 const SQL = `
-SELECT l.id, l.title, l.grade, l.indicator, l.description, l.notation, l.tempo, l.difficulty, l.base_hz, l.segment_id,
+SELECT l.id, l.title, l.grade, l.indicator, l.description, l.notation, l.tempo, l.difficulty, l.base_hz, l.segment_id, l.instrument_id,
        i.name_th AS instrument, p.display_name AS person, v.name AS variant, c.access_level, c.revoked_at
 FROM lessons l
 LEFT JOIN instruments i ON i.id = l.instrument_id

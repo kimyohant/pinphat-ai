@@ -25,9 +25,9 @@ export function NotationGrid({
             .map((s) => (
               <span
                 key={s.index}
-                className={["slot", s.note ? "" : "rest", s.index === current ? "now" : "", slotState?.[s.index] ?? ""].join(" ")}
+                className={["slot", s.note || s.stroke ? "" : "rest", s.index === current ? "now" : "", slotState?.[s.index] ?? ""].join(" ")}
               >
-                {noteLabel(s.note, s.octave)}
+                {noteLabel(s.note, s.octave, s.stroke)}
               </span>
             ))}
         </div>

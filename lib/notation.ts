@@ -10,13 +10,30 @@ export const DEFAULT_BASE_HZ = 280;
 const HIGH = "ํ"; // นิคหิต ใช้แทนจุดบน = เสียงสูง
 const LOW = "ฺ"; // พินทุ ใช้แทนจุดล่าง = เสียงต่ำ
 
+/**
+ * เครื่องหนังและฉิ่งไม่มีระดับเสียง จึงจดเป็นพยางค์ของการตี (ข้อมูลสาธิต ทีมวิจัยต้องยืนยันพยางค์จริงของวงล้านช้าง)
+ * ต = ตุ๊บ หน้ากลองเปิด เสียงต่ำ · ป = ป๊ะ ตีปิด เสียงสูง · ฉ = ฉิ่ง เปิดให้ก้อง · บ = ฉับ ประกบปิด
+ */
+export const STROKES = ["ต", "ป", "ฉ", "บ"] as const;
+export type Stroke = (typeof STROKES)[number];
+
 export type Slot = {
   index: number;
   bar: number;
   pos: number;
   note: NoteName | null;
   octave: number;
+  stroke?: Stroke | null;
 };
+
+export function isStroke(ch: string): ch is Stroke {
+  return (STROKES as readonly string[]).includes(ch);
+}
+
+/** ช่องนี้ต้องตีหรือไม่ ไม่ว่าจะเป็นโน้ตหรือพยางค์กลอง */
+export function isStruck(s: Pick<Slot, "note" | "stroke">): boolean {
+  return Boolean(s.note || s.stroke);
+}
 
 export function isNote(ch: string): ch is NoteName {
   return (NOTES as readonly string[]).includes(ch);
@@ -37,18 +54,22 @@ export function parseNotation(src: string): Slot[] {
       .forEach((tok, pi) => {
         let note: NoteName | null = null;
         let octave = 0;
+        let stroke: Stroke | null = null;
         if (tok !== "-" && isNote(tok[0])) {
           note = tok[0];
           if (tok.includes(HIGH)) octave = 1;
           if (tok.includes(LOW)) octave = -1;
+        } else if (tok !== "-" && isStroke(tok[0])) {
+          stroke = tok[0];
         }
-        slots.push({ index: index++, bar: bi, pos: pi, note, octave });
+        slots.push({ index: index++, bar: bi, pos: pi, note, octave, stroke });
       });
   });
   return slots;
 }
 
-export function noteLabel(note: NoteName | null, octave = 0): string {
+export function noteLabel(note: NoteName | null, octave = 0, stroke?: Stroke | null): string {
+  if (stroke) return stroke;
   if (!note) return "-";
   return note + (octave > 0 ? HIGH : octave < 0 ? LOW : "");
 }

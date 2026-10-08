@@ -203,7 +203,9 @@
 }
 
 /* ═══════════════ กลางคืน · indigo after dark ═══════════════ */
-:root[data-theme="dark"] {
+/* .on-night: a dark island inside a light page (the practice stage), every nested component follows */
+:root[data-theme="dark"],
+.on-night {
   color-scheme: dark;
 
   --ground: #0e1222;

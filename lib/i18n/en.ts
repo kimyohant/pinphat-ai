@@ -165,8 +165,8 @@ export const en: Dict = {
   },
   learn: {
     eyebrow: "Practice",
-    title: "Ranat ek lessons",
-    lede: "Choose a lesson, listen to the example, then play along on the on-screen ranat or a real one. The AI coach tells you which bars to practise again.",
+    title: "Pinphat lessons, every instrument",
+    lede: "Choose an instrument and a lesson, listen to the example, then play along on screen or on a real instrument. The AI coach listens to every bar and tells you which to practise again.",
     assigned: "Set by your teacher",
     lessonN: "Lesson #{n}",
     practiced: "{n} attempts",
